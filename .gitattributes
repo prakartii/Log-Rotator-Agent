@@ -1,0 +1,4 @@
+# The code runs on Linux (WSL/Ubuntu). Force LF line endings so scripts
+# work even when the repository is checked out on Windows.
+* text=auto eol=lf
+*.gz binary

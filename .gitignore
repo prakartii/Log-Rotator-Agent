@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Runtime data produced by the demo (keep the directories, not the contents)
+logs/*
+!logs/.gitkeep
+rotated_logs/*
+!rotated_logs/.gitkeep
+*.lock
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
