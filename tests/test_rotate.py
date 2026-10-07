@@ -140,6 +140,21 @@ class SuccessfulRotationTest(RotateTestCase):
         self.assertEqual(result["status"], "success")
 
 
+class RotationVerificationTest(RotateTestCase):
+    def test_success_reports_rotation_checks(self):
+        result = self.rotate()
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["rotation_checks"], {
+            "exists": True, "regular_file": True, "same_inode": True, "not_deleted": True,
+            "mode_preserved": True, "owner_preserved": True, "appendable": True,
+        })
+
+    def test_archive_only_skips_rotation_check(self):
+        result = self.rotate(truncate=False)
+        self.assertNotIn("rotation_checks", result)
+        self.assertNotIn("verify_rotation", [s["step"] for s in result["steps"]])
+
+
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
         result = self.rotate(compress=False)
