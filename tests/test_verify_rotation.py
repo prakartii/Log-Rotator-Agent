@@ -73,5 +73,52 @@ class SuccessfulVerificationTest(VerifyRotationTestCase):
         self.assertEqual(result["writers_attached"], [])
 
 
+class FailedVerificationTest(VerifyRotationTestCase):
+    def test_deleted_log_fails(self):
+        self.log.unlink()
+        self.assertRotationFails("exists")
+
+    def test_delete_and_recreate_fails_on_inode(self):
+        """Exactly the unsafe rotation style this project avoids."""
+        self.log.unlink()
+        self.log.write_bytes(b"")
+        err = self.assertRotationFails("same_inode")
+        self.assertEqual(err.details["inode_before"], self.before.st_ino)
+        self.assertNotEqual(err.details["inode_after"], self.before.st_ino)
+
+    def test_rename_away_and_recreate_fails(self):
+        os.rename(self.log, self.log.with_suffix(".1"))  # classic "mv + create" rotation
+        self.log.write_bytes(b"")
+        self.assertRotationFails("same_inode")
+
+    def test_symlink_planted_at_log_path_fails(self):
+        target = self.log.with_suffix(".real")
+        os.rename(self.log, target)
+        self.log.symlink_to(target)
+        self.assertRotationFails("regular_file")
+
+    def test_directory_at_log_path_fails(self):
+        self.log.unlink()
+        self.log.mkdir()
+        try:
+            self.assertRotationFails("regular_file")
+        finally:
+            self.log.rmdir()
+
+    def test_changed_permissions_fail(self):
+        os.chmod(self.log, 0o666)
+        err = self.assertRotationFails("mode_preserved")
+        self.assertEqual(err.details["mode_before"], "-rw-r--r--")
+        self.assertEqual(err.details["mode_after"], "-rw-rw-rw-")
+
+    @unittest.skipIf(os.geteuid() == 0, "root can always write")
+    def test_unwritable_log_fails_appendable(self):
+        os.chmod(self.log, 0o444)
+        before = os.stat(self.log)  # same mode before and after, so only 'appendable' fails
+        with self.assertRaises(RotatorError) as ctx:
+            verifier.verify_rotation(self.log, before)
+        self.assertFalse(ctx.exception.details["checks"]["appendable"])
+
+
 if __name__ == "__main__":
     unittest.main()
