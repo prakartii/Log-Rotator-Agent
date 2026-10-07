@@ -103,7 +103,8 @@ The agent refuses to touch a file when:
 Error codes: `INVALID_REQUEST`, `LOG_NOT_FOUND`, `AMBIGUOUS_LOG`,
 `NOT_A_REGULAR_FILE`, `OUTSIDE_ALLOWED_DIR`, `SYMLINK_REJECTED`,
 `HARDLINK_REJECTED`, `FILE_CHANGED`, `PERMISSION_DENIED`, `SNAPSHOT_FAILED`,
-`COMPRESSION_FAILED`, `VERIFY_FAILED`, `TRUNCATE_FAILED`, `OS_ERROR`.
+`COMPRESSION_FAILED`, `VERIFY_FAILED`, `TRUNCATE_FAILED`, `ROTATION_VERIFY_FAILED`,
+`OS_ERROR`.
 
 ## Safe rotation: `rotate_log()`
 
@@ -167,9 +168,32 @@ archive and the live log.
 | compression fails (e.g. disk full) | no | none (temp file removed) |
 | verification fails (corrupt / wrong content) | no | **removed** (not trustworthy) |
 | truncation fails | no | kept (it is verified) |
+| post-rotation check fails | **yes** | kept, and its path is in the error result |
 
-Every failure returns `"status": "error"`, an `error_code`, `"truncated": false`
-and `"log_unchanged": true`.
+### Verifying the rotation itself
+
+Success is only reported after `verify_rotation()` has re-checked the log **by its
+path** (what users and new writers will open):
+
+| Check | How | Catches |
+|---|---|---|
+| `exists`, `regular_file` | `lstat()` | log deleted, or replaced by a symlink/directory |
+| `same_inode` | `(st_dev, st_ino)` before == after | delete + recreate, `mv` + create |
+| `not_deleted` | `st_nlink >= 1` | the inode lost its name |
+| `mode_preserved`, `owner_preserved` | `st_mode`, `st_uid`, `st_gid` | permissions changed underneath |
+| `appendable` | `open(O_WRONLY \| O_APPEND)` + `write(b"")` | log no longer writable (adds no data) |
+| `writers_attached` | `/proc/<pid>/fd` of every writer seen before | a writer died or holds a different inode |
+
+If a check fails after truncation the result is `ROTATION_VERIFY_FAILED` (never
+"success") with `truncated: true` and the archive path, which then holds the only
+copy of the old data.
+
+With `rotate_log(..., watch_writer=3)` the agent also samples the log for up to
+3 seconds and reports `writer_continues: true` once the same inode grows again. A
+writer that is merely idle only adds a warning.
+
+Every failure before truncation returns `"status": "error"`, an `error_code`,
+`"truncated": false` and `"log_unchanged": true`.
 
 ### Example result
 
@@ -195,7 +219,11 @@ and `"log_unchanged": true`.
 }
 ```
 
-`size_after` can already be above 0: the writer continued writing the moment the log was emptied.
+`size_after_truncate` is the size returned by `ftruncate()` itself (always 0).
+`size_after`, measured at the end, can already be above 0: the writer continued
+writing the moment the log was emptied. Successful results also contain
+`rotation_checks` (all `true`), and with `watch_writer` also `writer_continues`
+and `growth` samples.
 
 ## Simulated writer
 
