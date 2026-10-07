@@ -3,6 +3,7 @@
 
     python3 demo/inode_demo.py                      # uses logs/ and rotated_logs/
     python3 demo/inode_demo.py --dir ~/rotator-demo # Linux filesystem: small, readable inode numbers
+    python3 demo/inode_demo.py --compare            # also show the wrong way (rm + create)
 
 What it shows:
     BEFORE   inode = X   size = large    writer running
@@ -30,11 +31,42 @@ def row(label, path, writer):
     print(f"  {label:<8} inode = {st.st_ino:<20} size = {human_size(st.st_size):>10}   writer pid {writer.pid}: {alive}")
 
 
+def wrong_way(log_dir: Path, rate: float) -> None:
+    """For contrast: 'rotate' by deleting and recreating the log (what NOT to do)."""
+    log = log_dir / "wrong_way.log"
+    log.unlink(missing_ok=True)
+    print(f"\n[X] The WRONG way for comparison: rm + create  ({log.name})")
+    writer = subprocess.Popen([sys.executable, str(PROJECT_ROOT / "writer.py"), str(log),
+                               "--prefill-mb", "1", "--rate", str(rate), "--quiet"],
+                              stdout=subprocess.DEVNULL)
+    try:
+        while not log.exists() or os.stat(log).st_size < 1024 * 1024:
+            time.sleep(0.05)
+        row("BEFORE", log, writer)
+
+        log.unlink()              # delete the active log ...
+        log.write_bytes(b"")      # ... and create a new, empty one with the same name
+        time.sleep(1)
+
+        row("+1s", log, writer)
+        target = os.readlink(f"/proc/{writer.pid}/fd/3")
+        print(f"  writer's fd 3 -> {target}")
+        print("  The name points to a NEW inode that stays empty. The writer still writes to the")
+        print("  OLD inode, which has no name any more: its lines are lost and its disk space is")
+        print("  not freed until the writer is restarted.")
+    finally:
+        writer.terminate()
+        writer.wait(timeout=5)
+        log.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dir", help="base directory for logs/ and rotated_logs/ (default: project folder)")
     parser.add_argument("--prefill-mb", type=float, default=20, help="size of the log before rotation")
     parser.add_argument("--rate", type=float, default=200, help="writer lines per second")
+    parser.add_argument("--compare", action="store_true",
+                        help="afterwards, show the wrong way (rm + create) for comparison")
     args = parser.parse_args()
 
     base = Path(args.dir).expanduser().resolve() if args.dir else PROJECT_ROOT
@@ -79,10 +111,14 @@ def main():
               f"(ratio {result['compression_ratio']}), caught up {result['caught_up_bytes']} bytes, "
               f"lost {result['bytes_lost']} bytes")
         print(f"\n  The writer never stopped and still writes to inode {result['inode_before']}.\n")
-        return 0
     finally:
         writer.terminate()
         writer.wait(timeout=5)
+
+    if args.compare:
+        wrong_way(log_dir, args.rate)
+        print()
+    return 0
 
 
 if __name__ == "__main__":
