@@ -225,6 +225,45 @@ writing the moment the log was emptied. Successful results also contain
 `rotation_checks` (all `true`), and with `watch_writer` also `writer_continues`
 and `growth` samples.
 
+## Demo: the inode stays the same
+
+```bash
+python3 demo/inode_demo.py --dir ~/rotator-demo --compare
+```
+
+`--dir` puts the demo logs on the Linux filesystem, which gives short inode numbers
+(on `/mnt/c` they are long NTFS ids). Real output:
+
+```
+[2] Before rotation
+  BEFORE   inode = 739                  size =   10.0 MiB   writer pid 500: running
+
+[3] Rotating: snapshot -> gzip -> verify -> catch up -> ftruncate(fd, 0) -> verify
+      identify         ok         0.30 ms
+      open             ok         0.18 ms
+      snapshot         ok        39.19 ms
+      compress         ok       157.36 ms
+      verify_archive   ok        47.53 ms
+      catch_up         ok         0.40 ms
+      truncate         ok         3.35 ms
+      verify_rotation  ok         1.35 ms
+      watch_writer     ok       100.44 ms
+
+[4] After rotation
+  AFTER    inode = 739                  size =        0 B   (at ftruncate; inode preserved: True)
+  +100  ms inode = 739                  size =    2.9 KiB
+  +1s      inode = 739                  size =   33.1 KiB   writer pid 500: running
+
+[X] The WRONG way for comparison: rm + create  (wrong_way.log)
+  BEFORE   inode = 30                   size =    1.0 MiB   writer pid 434: running
+  +1s      inode = 31                   size =        0 B   writer pid 434: running
+  writer's fd 3 -> /tmp/rotator-demo/logs/wrong_way.log (deleted)
+```
+
+Same inode, size 10 MiB → 0 → growing, writer never restarted. With rm + create
+the name gets a new inode that stays empty while the writer keeps writing into
+the deleted one.
+
 ## Simulated writer
 
 ```bash
