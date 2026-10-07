@@ -19,6 +19,7 @@ from pathlib import Path
 from .. import config
 from .. import errors
 from ..errors import RotatorError
+from .processes import find_open_handles, unsafe_writers
 from .safety import open_validated, validate_log_path
 
 # Words that describe "a log" rather than name one: "the apache error logs".
@@ -127,8 +128,12 @@ def _has_hole(fd: int, st) -> bool:
         return 0 < st.st_blocks * 512 < st.st_size
 
 
-def get_log_info(path, allowed_roots=None) -> dict:
-    """Return inode-level metadata for one log, read with open() + fstat() + close()."""
+def get_log_info(path, allowed_roots=None, include_processes=True) -> dict:
+    """Return inode-level metadata for one log, read with open() + fstat() + close().
+
+    With include_processes, also lists the processes that have the log open
+    (from /proc) and warns about writers that do not use O_APPEND.
+    """
     fd, _ = open_validated(path, os.O_RDONLY, allowed_roots=allowed_roots)
     try:
         st = os.fstat(fd)
@@ -147,6 +152,16 @@ def get_log_info(path, allowed_roots=None) -> dict:
 
     real_path = os.path.realpath(path)
     disk_usage = st.st_blocks * 512  # st_blocks is always counted in 512-byte units
+
+    extra = {}
+    if include_processes:
+        handles = find_open_handles(real_path)
+        extra["open_by"] = handles
+        extra["warnings"] = [
+            f"pid {h['pid']} writes without O_APPEND; truncating would leave a hole of "
+            f"{h['offset']} zero bytes" for h in unsafe_writers(handles)
+        ]
+
     return errors.success(
         "get_log_info",
         log=real_path,
@@ -170,4 +185,5 @@ def get_log_info(path, allowed_roots=None) -> dict:
         changed=_iso(st.st_ctime),
         readable=os.access(real_path, os.R_OK),
         writable=os.access(real_path, os.W_OK),
+        **extra,
     )
