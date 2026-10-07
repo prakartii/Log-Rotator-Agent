@@ -129,6 +129,57 @@ class CompressLogTest(CompressorTestCase):
             self.assertEqual(ctx.exception.code, errors.INVALID_REQUEST)
 
 
+class AppendGzipMemberTest(CompressorTestCase):
+    def setUp(self):
+        super().setUp()
+        self.archive = Path(self.compress()["archive"])
+        self.verified_bytes = self.archive.read_bytes()
+
+    def test_appended_data_follows_original(self):
+        result = compressor.append_gzip_member(self.archive, b"late line 1\nlate line 2\n")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["bytes_added"], 24)
+        self.assertEqual(result["archive_size"], self.archive.stat().st_size)
+        with gzip.open(self.archive, "rb") as f:
+            self.assertEqual(f.read(), self.data + b"late line 1\nlate line 2\n")
+
+    def test_original_member_bytes_are_untouched(self):
+        compressor.append_gzip_member(self.archive, b"more\n")
+        self.assertTrue(self.archive.read_bytes().startswith(self.verified_bytes))
+
+    def test_several_appends(self):
+        for i in range(3):
+            compressor.append_gzip_member(self.archive, f"extra {i}\n".encode())
+        with gzip.open(self.archive, "rb") as f:
+            self.assertEqual(f.read(), self.data + b"extra 0\nextra 1\nextra 2\n")
+
+    def test_failed_write_rolls_back_to_verified_archive(self):
+        real_write = os.write
+
+        def write_half_then_fail(fd, data):
+            real_write(fd, bytes(data[: len(data) // 2]))
+            raise OSError(28, "No space left on device")
+
+        with mock.patch.object(compressor.os, "write", side_effect=write_half_then_fail):
+            with self.assertRaises(RotatorError) as ctx:
+                compressor.append_gzip_member(self.archive, b"x" * 5000)
+        self.assertEqual(ctx.exception.code, errors.COMPRESSION_FAILED)
+        self.assertEqual(self.archive.read_bytes(), self.verified_bytes, "archive must be rolled back")
+
+    def test_missing_archive(self):
+        self.archive.unlink()
+        with self.assertRaises(RotatorError) as ctx:
+            compressor.append_gzip_member(self.archive, b"x")
+        self.assertEqual(ctx.exception.code, errors.COMPRESSION_FAILED)
+
+    def test_refuses_symlink(self):
+        link = self.archives / "link.gz"
+        link.symlink_to(self.archive)
+        with self.assertRaises(RotatorError):
+            compressor.append_gzip_member(link, b"x")
+        self.assertEqual(self.archive.read_bytes(), self.verified_bytes)
+
+
 class CompressionFailureTest(CompressorTestCase):
     def test_missing_source(self):
         self.snapshot.unlink()
