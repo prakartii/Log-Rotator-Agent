@@ -80,7 +80,7 @@ class SuccessfulRotationTest(RotateTestCase):
     def test_steps_run_in_safe_order(self):
         result = self.rotate()
         self.assertEqual([s["step"] for s in result["steps"]],
-                         ["identify", "open", "snapshot", "compress", "verify_archive", "catch_up", "truncate"])
+                         ["identify", "open", "snapshot", "compress", "verify_archive", "catch_up", "truncate", "verify_rotation"])
         self.assertTrue(all(s["ok"] for s in result["steps"]))
         self.assertTrue(all(s["ms"] >= 0 for s in result["steps"]))
 
@@ -154,7 +154,7 @@ class UncompressedRotationTest(RotateTestCase):
     def test_plain_steps(self):
         result = self.rotate(compress=False)
         self.assertEqual([s["step"] for s in result["steps"]],
-                         ["identify", "open", "snapshot", "publish", "verify_archive", "catch_up", "truncate"])
+                         ["identify", "open", "snapshot", "publish", "verify_archive", "catch_up", "truncate", "verify_rotation"])
 
     def test_plain_catch_up(self):
         real_verify = rotate.verifier.verify_copy

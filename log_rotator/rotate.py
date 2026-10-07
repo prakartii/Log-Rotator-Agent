@@ -142,6 +142,14 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             # Report them honestly (normally 0; the lock-cooperating writer makes it always 0).
             bytes_lost = max(trunc["size_before"] - archived, 0)
 
+            # Never report success without checking the result: same inode, still
+            # writable, and every writer still attached to it.
+            writer_pids = [h["pid"] for h in handles if h["access"] != "read"]
+            with steps.step("verify_rotation") as s:
+                rotation_check = verifier.verify_rotation(path, before, writer_pids=writer_pids)
+                s["writers_attached"] = rotation_check["writers_attached"]
+            info["rotation_checks"] = rotation_check["checks"]
+
         after = os.fstat(fd)
         archive_size = os.stat(archive_path).st_size
         info.update(
