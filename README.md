@@ -20,6 +20,8 @@ same and the writer process keeps running on its open file descriptor.
 ```
 agent.py                 # command-line entry point (later phase)
 writer.py                # simulated long-running process that appends to a log
+demo/
+    inode_demo.py        # presentation demo: same inode before/after, writer keeps running
 log_rotator/
     config.py            # directories, allowed roots, log aliases
     errors.py            # stable error codes + structured success/error results
@@ -29,7 +31,7 @@ log_rotator/
         processes.py     # which processes have a log open (/proc/<pid>/fd, fdinfo)
         snapshot.py      # snapshot_log(): exact byte-range copy of the open log
         compressor.py    # compress_log(), archive_name(): atomic gzip archives
-        verifier.py      # verify_archive(), verify_copy(): read the archive back and prove it matches
+        verifier.py      # verify_archive(), verify_copy(), verify_rotation(), watch_log_growth()
         truncator.py     # truncate_log(): ftruncate() on the open descriptor
     rotate.py            # rotate_log(): the full safe-rotation pipeline
 logs/                    # active demo logs (contents git-ignored)
@@ -56,6 +58,8 @@ the results directly as JSON.
 | `archive_name(log)` | `apache_error.log.2026-10-07T195312.gz` (optional label, e.g. `2026-09`) | |
 | `verify_archive(archive, sha256, size)` | Decompresses the archive from disk and compares it with the snapshot | `O_NOFOLLOW`, `fstat`, gzip CRC-32 + length, SHA-256 |
 | `truncate_log(fd)` | Empties the log in place; reports inode and size before/after | `ftruncate` on the open descriptor |
+| `verify_rotation(path, before)` | After truncation: same inode, still appendable, same mode/owner, writers still attached | `lstat`, inode compare, `O_APPEND` open + zero-byte `write`, `/proc` |
+| `watch_log_growth(path, inode)` | Samples inode + size until the writer's new lines appear | `stat` polling |
 | `rotate_log(log, ...)` | The whole pipeline below, returns one structured result | everything above |
 
 ### How an archive is written safely
