@@ -29,6 +29,7 @@ log_rotator/
         processes.py     # which processes have a log open (/proc/<pid>/fd, fdinfo)
         snapshot.py      # snapshot_log(): exact byte-range copy of the open log
         compressor.py    # compress_log(), archive_name(): atomic gzip archives
+        verifier.py      # verify_archive(): read the archive back and prove it matches
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
@@ -51,6 +52,7 @@ the results directly as JSON.
 | `snapshot_log(fd, dest, length)` | Copies exactly `length` bytes of the open log into a private file and returns their SHA-256 | `fstat`, `pread`, `O_EXCL`, mode `0600`, short writes, `fsync` |
 | `compress_log(snapshot)` | gzips the snapshot into `rotated_logs/` | temp file + `fsync` + `link()` + `unlink` + directory `fsync` |
 | `archive_name(log)` | `apache_error.log.2026-10-07T195312.gz` (optional label, e.g. `2026-09`) | |
+| `verify_archive(archive, sha256, size)` | Decompresses the archive from disk and compares it with the snapshot | `O_NOFOLLOW`, `fstat`, gzip CRC-32 + length, SHA-256 |
 
 ### How an archive is written safely
 
@@ -67,6 +69,18 @@ the results directly as JSON.
 4. **On any failure** the partial snapshot or temp archive is deleted and an error
    (`SNAPSHOT_FAILED` / `COMPRESSION_FAILED`) is returned. The active log is only
    ever *read* in these steps, so it can never be damaged by a failed archive.
+5. **Verify before truncating.** The archive is reopened from disk and fully
+   decompressed. It passes only if it is a regular file, gzip's own CRC-32 and
+   length checks succeed, and the decompressed size **and** SHA-256 equal the
+   snapshot's. CRC-32 catches accidental damage; SHA-256 proves it is the right
+   content. Any failure returns `VERIFY_FAILED` with the failing check, and the
+   active log must not be truncated.
+
+```json
+{"status": "success", "action": "verify_archive", "verified": true,
+ "archive_size": 193926, "uncompressed_size": 2097266, "sha256": "932efb0c…",
+ "checks": {"regular_file": true, "gzip_valid": true, "size_match": true, "sha256_match": true}}
+```
 
 ### Safety rules
 
@@ -81,7 +95,7 @@ The agent refuses to touch a file when:
 Error codes: `INVALID_REQUEST`, `LOG_NOT_FOUND`, `AMBIGUOUS_LOG`,
 `NOT_A_REGULAR_FILE`, `OUTSIDE_ALLOWED_DIR`, `SYMLINK_REJECTED`,
 `HARDLINK_REJECTED`, `FILE_CHANGED`, `PERMISSION_DENIED`, `SNAPSHOT_FAILED`,
-`COMPRESSION_FAILED`, `OS_ERROR`.
+`COMPRESSION_FAILED`, `VERIFY_FAILED`, `OS_ERROR`.
 
 ## Simulated writer
 
