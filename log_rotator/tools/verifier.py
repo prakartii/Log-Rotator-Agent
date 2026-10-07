@@ -89,3 +89,44 @@ def verify_archive(archive_path, expected_sha256: str, expected_size: int) -> di
         sha256=actual_sha256,
         checks=checks,
     )
+
+
+def verify_copy(archive_path, expected_sha256: str, expected_size: int) -> dict:
+    """Verify an UNCOMPRESSED archive: same checks as verify_archive() minus gzip."""
+    archive_path = os.fspath(archive_path)
+    checks = {}
+
+    def fail(message, **details):
+        raise RotatorError(errors.VERIFY_FAILED, message, archive=archive_path, checks=checks, **details)
+
+    try:
+        fd = os.open(archive_path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as err:
+        fail(f"Cannot open archive: {err.strerror}", errno=err.errno)
+
+    digest = hashlib.sha256()
+    try:
+        st = os.fstat(fd)
+        checks["regular_file"] = stat.S_ISREG(st.st_mode)
+        if not checks["regular_file"]:
+            fail("Archive is not a regular file")
+        while True:
+            chunk = os.read(fd, config.COPY_CHUNK_SIZE)
+            if not chunk:
+                break
+            digest.update(chunk)
+    finally:
+        os.close(fd)
+
+    checks["size_match"] = st.st_size == expected_size
+    if not checks["size_match"]:
+        fail(f"Archive holds {st.st_size} bytes, snapshot had {expected_size}",
+             expected_size=expected_size, actual_size=st.st_size)
+    actual_sha256 = digest.hexdigest()
+    checks["sha256_match"] = actual_sha256 == expected_sha256
+    if not checks["sha256_match"]:
+        fail("Archive content does not match the snapshot (SHA-256 differs)",
+             expected_sha256=expected_sha256, actual_sha256=actual_sha256)
+
+    return errors.success("verify_copy", archive=archive_path, verified=True,
+                          archive_size=st.st_size, sha256=actual_sha256, checks=checks)
