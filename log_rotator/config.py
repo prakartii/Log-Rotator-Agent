@@ -53,3 +53,8 @@ GZIP_LEVEL = 6
 
 # Chunk size for copying/compressing, so huge logs are never read into memory at once.
 COPY_CHUNK_SIZE = 1024 * 1024  # 1 MiB
+
+# Lines a writer appends while the archive is being built are added to the
+# archive just before truncation ("catch-up"). Each round shrinks the gap;
+# stop after this many rounds so a very busy writer cannot keep us looping.
+MAX_CATCHUP_ROUNDS = 5
