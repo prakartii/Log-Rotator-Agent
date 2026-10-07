@@ -167,6 +167,47 @@ def verify_rotation(path, before: os.stat_result, writer_pids=()) -> dict:
     )
 
 
+def watch_log_growth(path, inode: int, timeout: float = 2.0, interval: float = 0.1) -> dict:
+    """Sample the log's size and inode for up to `timeout` seconds after rotation.
+
+    Shows that the writer CONTINUES on the same file: the inode stays the
+    same and the size grows again from 0. Stops as soon as growth is seen
+    (after at least two samples). An idle writer is not an error, so this
+    returns `grew: false` instead of raising.
+    """
+    import time
+
+    path = os.fspath(path)
+    samples = []
+    start = time.monotonic()
+    first_size = None
+    while True:
+        st = os.stat(path)
+        elapsed = round((time.monotonic() - start) * 1000)
+        samples.append({"ms": elapsed, "inode": st.st_ino, "size": st.st_size})
+        if st.st_ino != inode:
+            raise RotatorError(errors.ROTATION_VERIFY_FAILED,
+                               f"The log changed inode while watching: {inode} -> {st.st_ino}",
+                               log=path, samples=samples)
+        if first_size is None:
+            first_size = st.st_size
+        elif st.st_size > first_size:
+            break
+        if time.monotonic() - start >= timeout:
+            break
+        time.sleep(interval)
+
+    return errors.success(
+        "watch_log_growth",
+        log=path,
+        inode=inode,
+        grew=samples[-1]["size"] > samples[0]["size"],
+        size_start=samples[0]["size"],
+        size_end=samples[-1]["size"],
+        samples=samples,
+    )
+
+
 def verify_copy(archive_path, expected_sha256: str, expected_size: int) -> dict:
     """Verify an UNCOMPRESSED archive: same checks as verify_archive() minus gzip."""
     archive_path = os.fspath(archive_path)
