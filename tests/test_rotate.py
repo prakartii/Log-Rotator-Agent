@@ -73,6 +73,7 @@ class SuccessfulRotationTest(RotateTestCase):
         self.assertEqual(result["inode_after"], self.inode)
         self.assertTrue(result["inode_preserved"])
         self.assertEqual(result["size_after"], 0)
+        self.assertEqual(result["size_after_truncate"], 0)
         self.assertFalse(result["dry_run"])
         self.assertEqual(result["open_by"], [])
         self.assertEqual(result["warnings"], [])

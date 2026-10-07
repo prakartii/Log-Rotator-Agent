@@ -144,6 +144,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
                 trunc = truncator.truncate_log(fd, 0)
                 s["bytes_removed"] = trunc["bytes_removed"]
             truncated = True
+            info["size_after_truncate"] = trunc["size_after"]  # always 0; size_after may already be > 0
             # Bytes written between the last catch-up and ftruncate() could not be saved.
             # Report them honestly (normally 0; the lock-cooperating writer makes it always 0).
             bytes_lost = max(trunc["size_before"] - archived, 0)
