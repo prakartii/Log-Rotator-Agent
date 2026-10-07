@@ -91,6 +91,82 @@ def verify_archive(archive_path, expected_sha256: str, expected_size: int) -> di
     )
 
 
+def verify_rotation(path, before: os.stat_result, writer_pids=()) -> dict:
+    """Check that the active log survived rotation as the SAME, still usable file.
+
+    `before` is the fstat() result taken before rotation. The checks look at the
+    PATH again (what users and new writers will open), not at our descriptor:
+
+    exists          - the name still exists (lstat)
+    regular_file    - it is a regular file, not a symlink planted meanwhile
+    same_inode      - (device, inode) equal to before: truncated, not recreated
+    not_deleted     - st_nlink >= 1: the inode still has a name
+    mode_preserved  - permission bits unchanged
+    owner_preserved - uid/gid unchanged
+    appendable      - can be opened O_WRONLY|O_APPEND (a zero-byte write() proves it, adds nothing)
+    writers_attached- every writer pid seen before still has the inode open (/proc)
+    """
+    from .processes import find_open_handles  # local import: processes is optional on non-Linux
+
+    path = os.fspath(path)
+    checks = {}
+
+    def fail(message, **details):
+        raise RotatorError(errors.ROTATION_VERIFY_FAILED, message, log=path, checks=checks, **details)
+
+    try:
+        st = os.lstat(path)
+        checks["exists"] = True
+    except FileNotFoundError:
+        checks["exists"] = False
+        fail("The log no longer exists after rotation")
+
+    checks["regular_file"] = stat.S_ISREG(st.st_mode)
+    if not checks["regular_file"]:
+        fail(f"The log is no longer a regular file ({stat.filemode(st.st_mode)})")
+
+    checks["same_inode"] = (st.st_dev, st.st_ino) == (before.st_dev, before.st_ino)
+    if not checks["same_inode"]:
+        fail(f"The log is a different file now: inode {before.st_ino} -> {st.st_ino}",
+             inode_before=before.st_ino, inode_after=st.st_ino)
+
+    checks["not_deleted"] = st.st_nlink >= 1
+    checks["mode_preserved"] = stat.S_IMODE(st.st_mode) == stat.S_IMODE(before.st_mode)
+    checks["owner_preserved"] = (st.st_uid, st.st_gid) == (before.st_uid, before.st_gid)
+    if not checks["mode_preserved"] or not checks["owner_preserved"]:
+        fail("The log's permissions or owner changed during rotation",
+             mode_before=stat.filemode(before.st_mode), mode_after=stat.filemode(st.st_mode))
+
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW)
+        try:
+            os.write(fd, b"")  # permission and file checks happen, no data is added
+        finally:
+            os.close(fd)
+        checks["appendable"] = True
+    except OSError as err:
+        checks["appendable"] = False
+        fail(f"The log cannot be opened for appending: {err.strerror}", errno=err.errno)
+
+    attached = []
+    if writer_pids:
+        attached = sorted({h["pid"] for h in find_open_handles(path)} & set(writer_pids))
+        checks["writers_attached"] = attached == sorted(set(writer_pids))
+        if not checks["writers_attached"]:
+            fail("Some writer processes no longer have the log open",
+                 writers_before=sorted(set(writer_pids)), writers_after=attached)
+
+    return errors.success(
+        "verify_rotation",
+        log=path,
+        verified=True,
+        inode=st.st_ino,
+        size=st.st_size,
+        writers_attached=attached,
+        checks=checks,
+    )
+
+
 def verify_copy(archive_path, expected_sha256: str, expected_size: int) -> dict:
     """Verify an UNCOMPRESSED archive: same checks as verify_archive() minus gzip."""
     archive_path = os.fspath(archive_path)
