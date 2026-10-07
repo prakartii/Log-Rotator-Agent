@@ -27,6 +27,8 @@ log_rotator/
         safety.py        # path validation and safe open (O_NOFOLLOW + inode check)
         log_info.py      # identify_log(), list_logs(), get_log_info()
         processes.py     # which processes have a log open (/proc/<pid>/fd, fdinfo)
+        snapshot.py      # snapshot_log(): exact byte-range copy of the open log
+        compressor.py    # compress_log(), archive_name(): atomic gzip archives
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
@@ -46,6 +48,25 @@ the results directly as JSON.
 | `validate_log_path(path)` | Allows only regular files inside `logs/` | `realpath`, `lstat`, `S_ISREG`, `st_nlink`, `access()` |
 | `open_validated(path)` | Opens the validated file without races | `O_NOFOLLOW`, `fstat` (device, inode) check against TOCTOU |
 | `find_open_handles(path)` | Like `lsof`: pid, fd, access mode, `O_APPEND`, offset | `/proc/<pid>/fd`, `/proc/<pid>/fdinfo` |
+| `snapshot_log(fd, dest, length)` | Copies exactly `length` bytes of the open log into a private file and returns their SHA-256 | `fstat`, `pread`, `O_EXCL`, mode `0600`, short writes, `fsync` |
+| `compress_log(snapshot)` | gzips the snapshot into `rotated_logs/` | temp file + `fsync` + `link()` + `unlink` + directory `fsync` |
+| `archive_name(log)` | `apache_error.log.2026-10-07T195312.gz` (optional label, e.g. `2026-09`) | |
+
+### How an archive is written safely
+
+1. **Snapshot.** `fstat()` the open log to pin its current size, then copy exactly
+   that many bytes with `pread()`. `pread()` reads at a given position without moving the
+   descriptor's offset. The writer may keep appending; those new bytes are not part
+   of this snapshot. The copy is `fsync()`ed and a SHA-256 is computed on the way.
+2. **Compress.** Stream the snapshot through gzip into a hidden temp file
+   (`O_CREAT | O_EXCL`), then `fsync()` it.
+3. **Publish atomically.** `link()` the temp file to its final name, then `unlink()`
+   the temp name. `rename()` would silently replace an existing archive, but
+   `link()` fails with `EEXIST`, so on a clash the archive gets a `-1`, `-2`, ...
+   suffix instead. Finally the directory is `fsync()`ed so the new name is durable.
+4. **On any failure** the partial snapshot or temp archive is deleted and an error
+   (`SNAPSHOT_FAILED` / `COMPRESSION_FAILED`) is returned. The active log is only
+   ever *read* in these steps, so it can never be damaged by a failed archive.
 
 ### Safety rules
 
@@ -59,7 +80,8 @@ The agent refuses to touch a file when:
 
 Error codes: `INVALID_REQUEST`, `LOG_NOT_FOUND`, `AMBIGUOUS_LOG`,
 `NOT_A_REGULAR_FILE`, `OUTSIDE_ALLOWED_DIR`, `SYMLINK_REJECTED`,
-`HARDLINK_REJECTED`, `FILE_CHANGED`, `PERMISSION_DENIED`, `OS_ERROR`.
+`HARDLINK_REJECTED`, `FILE_CHANGED`, `PERMISSION_DENIED`, `SNAPSHOT_FAILED`,
+`COMPRESSION_FAILED`, `OS_ERROR`.
 
 ## Simulated writer
 
