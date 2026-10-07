@@ -140,6 +140,130 @@ class SuccessfulRotationTest(RotateTestCase):
         self.assertEqual(result["status"], "success")
 
 
+class CatchUpTest(RotateTestCase):
+    """Lines appended while the archive is being built must end up in the archive."""
+
+    def append_to_log(self, data):
+        with open(self.log, "ab") as f:  # O_APPEND, like a real writer
+            f.write(data)
+
+    def test_lines_written_during_rotation_are_archived(self):
+        real_verify = rotate.verifier.verify_archive
+
+        def writer_appends_during_verify(*args, **kwargs):
+            self.append_to_log(b"written during rotation\n")
+            return real_verify(*args, **kwargs)
+
+        with mock.patch.object(rotate.verifier, "verify_archive", side_effect=writer_appends_during_verify):
+            result = self.rotate()
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["caught_up_bytes"], 24)
+        self.assertEqual(result["bytes_archived"], len(self.data) + 24)
+        self.assertEqual(result["bytes_lost"], 0)
+        self.assertEqual(self.log.read_bytes(), b"")
+        with gzip.open(result["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data + b"written during rotation\n")
+        catch_up = next(s for s in result["steps"] if s["step"] == "catch_up")
+        self.assertEqual((catch_up["bytes"], catch_up["rounds"]), (24, 1))
+
+    def test_nothing_to_catch_up(self):
+        result = self.rotate()
+        self.assertEqual(result["caught_up_bytes"], 0)
+        catch_up = next(s for s in result["steps"] if s["step"] == "catch_up")
+        self.assertEqual(catch_up["rounds"], 0)
+
+    def test_repeats_until_log_stops_growing(self):
+        real_verify = rotate.verifier.verify_archive
+        real_append = rotate.compressor.append_gzip_member
+        rounds = []
+
+        def first_write(*args, **kwargs):
+            self.append_to_log(b"A\n")
+            return real_verify(*args, **kwargs)
+
+        def write_again_while_appending(path, data):
+            rounds.append(data)
+            if len(rounds) == 1:
+                self.append_to_log(b"B\n")  # arrives while round 1 is being archived
+            return real_append(path, data)
+
+        with mock.patch.object(rotate.verifier, "verify_archive", side_effect=first_write), \
+                mock.patch.object(rotate.compressor, "append_gzip_member", side_effect=write_again_while_appending):
+            result = self.rotate()
+
+        self.assertEqual(rounds, [b"A\n", b"B\n"])
+        self.assertEqual(result["caught_up_bytes"], 4)
+        with gzip.open(result["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data + b"A\nB\n")
+
+    def test_round_limit_reports_lost_bytes(self):
+        real_append = rotate.compressor.append_gzip_member
+        real_verify = rotate.verifier.verify_archive
+
+        def first_write(*args, **kwargs):
+            self.append_to_log(b"start\n")
+            return real_verify(*args, **kwargs)
+
+        def endless_writer(path, data):
+            self.append_to_log(b"more\n")  # the writer never pauses
+            return real_append(path, data)
+
+        with mock.patch.object(rotate.config, "MAX_CATCHUP_ROUNDS", 2), \
+                mock.patch.object(rotate.verifier, "verify_archive", side_effect=first_write), \
+                mock.patch.object(rotate.compressor, "append_gzip_member", side_effect=endless_writer):
+            result = self.rotate()
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["caught_up_bytes"], len(b"start\nmore\n"))
+        self.assertEqual(result["bytes_lost"], len(b"more\n"), "the last unarchived write is reported")
+
+    def test_archive_only_does_not_catch_up(self):
+        result = self.rotate(truncate=False)
+        self.assertNotIn("catch_up", [s["step"] for s in result["steps"]])
+
+
+@unittest.skipUnless(os.path.isdir("/proc"), "requires Linux")
+class LiveWriterRotationTest(RotateTestCase):
+    """Rotate while a real writer.py process is appending 500 lines per second."""
+
+    def test_no_line_lost_or_duplicated_and_writer_survives(self):
+        import re
+        import subprocess
+        import sys
+        import time
+
+        self.log.write_bytes(b"")
+        writer = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve().parent.parent / "writer.py"),
+             str(self.log), "--rate", "500", "--prefill-mb", "2", "--quiet"],
+            stdout=subprocess.DEVNULL)
+        try:
+            deadline = time.monotonic() + 5
+            while os.stat(self.log).st_size < 2 * 1024 * 1024 and time.monotonic() < deadline:
+                time.sleep(0.05)
+            time.sleep(0.2)
+
+            result = self.rotate()
+            self.assertEqual(result["status"], "success", result)
+            self.assertTrue(result["inode_preserved"])
+            self.assertEqual([h["pid"] for h in result["open_by"]], [writer.pid])
+
+            time.sleep(0.3)
+            self.assertIsNone(writer.poll(), "writer must still be running")
+            self.assertGreater(os.stat(self.log).st_size, 0, "writer keeps filling the same file")
+            self.assertEqual(os.stat(self.log).st_ino, self.inode)
+        finally:
+            writer.terminate()
+            writer.wait(timeout=5)
+
+        with gzip.open(result["archive"], "rb") as f:
+            archived = f.read().decode()
+        seqs = [int(s) for s in re.findall(r"seq=(\d+)\n", archived + self.log.read_text())]
+        self.assertEqual(sorted(seqs), list(range(1, max(seqs) + 1)),
+                         f"lost or duplicated lines (bytes_lost={result['bytes_lost']})")
+
+
 class FailedRotationTest(RotateTestCase):
     def fail_with(self, target, code):
         return mock.patch.object(target[0], target[1], side_effect=RotatorError(code, "simulated failure"))
