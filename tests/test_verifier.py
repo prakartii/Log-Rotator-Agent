@@ -131,5 +131,41 @@ class VerifierTest(unittest.TestCase):
         self.assertNotIn("sha256_match", err.details["checks"])
 
 
+class VerifyCopyTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.copy = Path(self.tmp.name) / "app.log.2026-10-07T120000"
+        self.data = b"plain archived line\n" * 500
+        self.copy.write_bytes(self.data)
+        self.sha = hashlib.sha256(self.data).hexdigest()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_valid_copy(self):
+        result = verifier.verify_copy(self.copy, self.sha, len(self.data))
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["checks"], {"regular_file": True, "size_match": True, "sha256_match": True})
+
+    def test_size_mismatch(self):
+        self.copy.write_bytes(self.data[:-1])
+        with self.assertRaises(RotatorError) as ctx:
+            verifier.verify_copy(self.copy, self.sha, len(self.data))
+        self.assertFalse(ctx.exception.details["checks"]["size_match"])
+
+    def test_content_mismatch(self):
+        self.copy.write_bytes(self.data.replace(b"plain", b"PLAIN"))
+        with self.assertRaises(RotatorError) as ctx:
+            verifier.verify_copy(self.copy, self.sha, len(self.data))
+        self.assertFalse(ctx.exception.details["checks"]["sha256_match"])
+
+    def test_symlink_refused(self):
+        link = Path(self.tmp.name) / "link"
+        link.symlink_to(self.copy)
+        with self.assertRaises(RotatorError) as ctx:
+            verifier.verify_copy(link, self.sha, len(self.data))
+        self.assertEqual(ctx.exception.code, errors.VERIFY_FAILED)
+
+
 if __name__ == "__main__":
     unittest.main()
