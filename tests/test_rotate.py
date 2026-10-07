@@ -140,6 +140,46 @@ class SuccessfulRotationTest(RotateTestCase):
         self.assertEqual(result["status"], "success")
 
 
+class UncompressedRotationTest(RotateTestCase):
+    def test_plain_archive_holds_exact_bytes(self):
+        result = self.rotate(compress=False)
+        self.assertEqual(result["status"], "success", result)
+        self.assertFalse(result["compressed"])
+        self.assertEqual(Path(result["archive"]).name, "apache_error.log.2026-10-07T195312")
+        self.assertEqual(Path(result["archive"]).read_bytes(), self.data)
+        self.assertEqual(result["compression_ratio"], 1.0)
+        self.assertEqual(os.stat(self.log).st_size, 0)
+        self.assertEqual(os.stat(self.log).st_ino, self.inode)
+
+    def test_plain_steps(self):
+        result = self.rotate(compress=False)
+        self.assertEqual([s["step"] for s in result["steps"]],
+                         ["identify", "open", "snapshot", "publish", "verify_archive", "catch_up", "truncate"])
+
+    def test_plain_catch_up(self):
+        real_verify = rotate.verifier.verify_copy
+
+        def append_during_verify(*args, **kwargs):
+            with open(self.log, "ab") as f:
+                f.write(b"late\n")
+            return real_verify(*args, **kwargs)
+
+        with mock.patch.object(rotate.verifier, "verify_copy", side_effect=append_during_verify):
+            result = self.rotate(compress=False)
+        self.assertEqual(Path(result["archive"]).read_bytes(), self.data + b"late\n")
+        self.assertEqual(result["caught_up_bytes"], 5)
+
+    def test_plain_verification_failure_keeps_log(self):
+        with mock.patch.object(rotate.verifier, "verify_copy",
+                               side_effect=RotatorError(errors.VERIFY_FAILED, "simulated")):
+            result = self.rotate(compress=False)
+        self.assertLogUnchanged(result)
+        self.assertEqual(self.archive_files(), [])
+
+    def test_gzip_result_reports_compressed(self):
+        self.assertTrue(self.rotate()["compressed"])
+
+
 class CatchUpTest(RotateTestCase):
     """Lines appended while the archive is being built must end up in the archive."""
 
