@@ -1,6 +1,6 @@
 # Log-Rotator-Agent
 
-Agent **#15** of our class-wide multi-agent Operating Systems project.
+
 
 The Log Rotator Agent manages bloated log files **without interrupting the
 process that is writing to them**. It archives the current contents of an
