@@ -1,7 +1,7 @@
 """The safe log-rotation pipeline.
 
     identify log -> open (O_RDWR, validated) -> fstat -> snapshot -> compress
-        -> verify archive -> ftruncate(fd, 0) -> structured result
+        -> verify archive -> catch up new lines -> ftruncate(fd, 0) -> structured result
 
 Rules that make it safe:
 
@@ -116,18 +116,31 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             verifier.verify_archive(archive_path, snap["sha256"], snap["bytes"])
             archive_verified = True
 
+        archived = snap["bytes"]
+        caught_up = 0
+        bytes_lost = 0
         if truncate:
+            with steps.step("catch_up") as s:
+                caught_up, rounds = _catch_up(fd, archive_path, archived)
+                archived += caught_up
+                s.update(bytes=caught_up, rounds=rounds)
+
             with steps.step("truncate") as s:
                 trunc = truncator.truncate_log(fd, 0)
                 s["bytes_removed"] = trunc["bytes_removed"]
             truncated = True
+            # Bytes written between the last catch-up and ftruncate() could not be saved.
+            # Report them honestly (normally 0; the lock-cooperating writer makes it always 0).
+            bytes_lost = max(trunc["size_before"] - archived, 0)
 
         after = os.fstat(fd)
         info.update(
             archive=archive_path,
-            archive_size=archive["archive_size"],
+            archive_size=os.stat(archive_path).st_size,
             compression_ratio=archive["compression_ratio"],
-            bytes_archived=snap["bytes"],
+            bytes_archived=archived,
+            caught_up_bytes=caught_up,
+            bytes_lost=bytes_lost,
             sha256=snap["sha256"],
             truncated=truncated,
             inode_after=after.st_ino,
@@ -152,6 +165,44 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             _remove_quietly(snap_path)
         if fd is not None:
             os.close(fd)
+
+
+def _catch_up(fd: int, archive_path, archived: int) -> tuple:
+    """Archive what the writer appended after the snapshot, just before truncating.
+
+    Snapshot + compress + verify take time (hundreds of ms for big logs) and
+    the writer keeps appending. Without this step those lines would be cut
+    off by ftruncate(). Each round reads only the new tail with pread() and
+    adds it to the archive as an extra gzip member; rounds get shorter and
+    shorter, so the remaining gap before ftruncate() is tiny.
+    """
+    caught_up = 0
+    rounds = 0
+    while rounds < config.MAX_CATCHUP_ROUNDS:
+        size = os.fstat(fd).st_size
+        if size <= archived:
+            break
+        delta = _pread_all(fd, size - archived, archived)
+        if not delta:
+            break
+        compressor.append_gzip_member(archive_path, delta)
+        archived += len(delta)
+        caught_up += len(delta)
+        rounds += 1
+    return caught_up, rounds
+
+
+def _pread_all(fd: int, length: int, offset: int) -> bytes:
+    """pread() may return fewer bytes than asked; keep reading until `length` or EOF."""
+    parts = []
+    while length > 0:
+        chunk = os.pread(fd, length, offset)
+        if not chunk:
+            break
+        parts.append(chunk)
+        offset += len(chunk)
+        length -= len(chunk)
+    return b"".join(parts)
 
 
 def _remove_quietly(path) -> None:

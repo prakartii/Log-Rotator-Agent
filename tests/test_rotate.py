@@ -80,7 +80,7 @@ class SuccessfulRotationTest(RotateTestCase):
     def test_steps_run_in_safe_order(self):
         result = self.rotate()
         self.assertEqual([s["step"] for s in result["steps"]],
-                         ["identify", "open", "snapshot", "compress", "verify_archive", "truncate"])
+                         ["identify", "open", "snapshot", "compress", "verify_archive", "catch_up", "truncate"])
         self.assertTrue(all(s["ok"] for s in result["steps"]))
         self.assertTrue(all(s["ms"] >= 0 for s in result["steps"]))
 
