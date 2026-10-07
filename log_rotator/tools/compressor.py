@@ -28,6 +28,7 @@ from pathlib import Path
 from .. import config
 from .. import errors
 from ..errors import RotatorError
+from .snapshot import _write_all
 
 _LABEL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _MAX_NAME_ATTEMPTS = 100
@@ -119,6 +120,50 @@ def compress_log(src_path, archive_dir=None, name: str = None, original_name: st
         original_size=original_size,
         compression_ratio=round(archive_size / original_size, 4) if original_size else 0.0,
         sha256=digest.hexdigest(),
+    )
+
+
+def append_gzip_member(archive_path, data: bytes, level: int = None) -> dict:
+    """Append `data` to an existing archive as one more gzip member.
+
+    The gzip format allows several members back to back; `gunzip` outputs
+    all of them in order. Used to add the few lines a writer appended
+    while the main archive was being built.
+
+    The member is compressed and checked in memory first, then written with
+    O_APPEND and fsync()ed. If the write fails, the archive is rolled back
+    with ftruncate() to its previous, already verified size.
+    """
+    archive_path = os.fspath(archive_path)
+    level = config.GZIP_LEVEL if level is None else level
+    member = gzip.compress(data, compresslevel=level, mtime=int(time.time()))
+    if gzip.decompress(member) != data:
+        raise RotatorError(errors.COMPRESSION_FAILED, "Extra gzip member failed its in-memory check",
+                           archive=archive_path)
+    try:
+        fd = os.open(archive_path, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW)
+    except OSError as err:
+        raise RotatorError(errors.COMPRESSION_FAILED, f"Cannot open archive: {err.strerror}",
+                           archive=archive_path, errno=err.errno) from None
+    try:
+        old_size = os.fstat(fd).st_size
+        try:
+            _write_all(fd, member)
+            os.fsync(fd)
+        except OSError as err:
+            os.ftruncate(fd, old_size)  # roll back to the last verified state
+            raise RotatorError(errors.COMPRESSION_FAILED,
+                               f"Appending to archive failed, rolled back: {err.strerror}",
+                               archive=archive_path, errno=err.errno) from None
+    finally:
+        os.close(fd)
+
+    return errors.success(
+        "append_gzip_member",
+        archive=archive_path,
+        bytes_added=len(data),
+        member_size=len(member),
+        archive_size=old_size + len(member),
     )
 
 
