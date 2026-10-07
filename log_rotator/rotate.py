@@ -60,6 +60,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
 
     log          - name, alias, description or path of the log (default: apache_error.log)
     archive_dir  - where archives go (default: rotated_logs/)
+    compress     - gzip the archive (True) or keep a plain copy (False)
     truncate     - False = archive only, leave the log as it is
     dry_run      - validate and report what would happen, change nothing
     label        - optional tag in the archive name, e.g. "2026-09"
@@ -93,7 +94,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             warnings=[f"pid {h['pid']} writes without O_APPEND; truncation will leave a hole"
                       for h in unsafe_writers(handles)],
         )
-        name = compressor.archive_name(path, when=now, label=label)
+        name = compressor.archive_name(path, when=now, label=label, compressed=compress)
 
         if dry_run:
             info.update(would_archive_to=str(archive_dir / name), would_truncate=truncate, truncated=False)
@@ -106,22 +107,30 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             snap = snapshot.snapshot_log(fd, snap_path, length=before.st_size)
             s["bytes"] = snap["bytes"]
 
-        with steps.step("compress") as s:
-            archive = compressor.compress_log(snap_path, archive_dir=archive_dir, name=name,
-                                              original_name=os.path.basename(path))
-            archive_path = archive["archive"]
-            s["archive"] = archive_path
-
-        with steps.step("verify_archive"):
-            verifier.verify_archive(archive_path, snap["sha256"], snap["bytes"])
-            archive_verified = True
+        if compress:
+            with steps.step("compress") as s:
+                archive_path = compressor.compress_log(snap_path, archive_dir=archive_dir, name=name,
+                                                       original_name=os.path.basename(path))["archive"]
+                s["archive"] = archive_path
+            with steps.step("verify_archive"):
+                verifier.verify_archive(archive_path, snap["sha256"], snap["bytes"])
+                archive_verified = True
+        else:
+            # Uncompressed: the fsync()ed snapshot itself becomes the archive.
+            with steps.step("publish") as s:
+                archive_path = str(compressor.publish_archive(snap_path, archive_dir, name))
+                s["archive"] = archive_path
+            with steps.step("verify_archive"):
+                verifier.verify_copy(archive_path, snap["sha256"], snap["bytes"])
+                archive_verified = True
 
         archived = snap["bytes"]
         caught_up = 0
         bytes_lost = 0
         if truncate:
+            append = compressor.append_gzip_member if compress else compressor.append_raw
             with steps.step("catch_up") as s:
-                caught_up, rounds = _catch_up(fd, archive_path, archived)
+                caught_up, rounds = _catch_up(fd, archive_path, archived, append)
                 archived += caught_up
                 s.update(bytes=caught_up, rounds=rounds)
 
@@ -134,10 +143,12 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             bytes_lost = max(trunc["size_before"] - archived, 0)
 
         after = os.fstat(fd)
+        archive_size = os.stat(archive_path).st_size
         info.update(
             archive=archive_path,
-            archive_size=os.stat(archive_path).st_size,
-            compression_ratio=archive["compression_ratio"],
+            compressed=compress,
+            archive_size=archive_size,
+            compression_ratio=round(archive_size / archived, 4) if archived else 0.0,
             bytes_archived=archived,
             caught_up_bytes=caught_up,
             bytes_lost=bytes_lost,
@@ -167,7 +178,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             os.close(fd)
 
 
-def _catch_up(fd: int, archive_path, archived: int) -> tuple:
+def _catch_up(fd: int, archive_path, archived: int, append) -> tuple:
     """Archive what the writer appended after the snapshot, just before truncating.
 
     Snapshot + compress + verify take time (hundreds of ms for big logs) and
@@ -185,7 +196,7 @@ def _catch_up(fd: int, archive_path, archived: int) -> tuple:
         delta = _pread_all(fd, size - archived, archived)
         if not delta:
             break
-        compressor.append_gzip_member(archive_path, delta)
+        append(archive_path, delta)
         archived += len(delta)
         caught_up += len(delta)
         rounds += 1
