@@ -149,6 +149,36 @@ class RotationVerificationTest(RotateTestCase):
             "mode_preserved": True, "owner_preserved": True, "appendable": True,
         })
 
+    def test_log_replaced_after_truncate_is_not_reported_as_success(self):
+        real_truncate = rotate.truncator.truncate_log
+
+        def truncate_then_someone_recreates(fd, length=0):
+            result = real_truncate(fd, length)
+            self.log.unlink()               # another tool deletes the log ...
+            self.log.write_bytes(b"")       # ... and creates a new one (new inode)
+            return result
+
+        with mock.patch.object(rotate.truncator, "truncate_log", side_effect=truncate_then_someone_recreates):
+            result = self.rotate()
+
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_code"], errors.ROTATION_VERIFY_FAILED)
+        self.assertFalse(result["checks"]["same_inode"])
+        self.assertTrue(result["truncated"])
+        self.assertFalse(result["log_unchanged"])
+        self.assertEqual(result["steps"][-1]["step"], "verify_rotation")
+        self.assertFalse(result["steps"][-1]["ok"])
+        with gzip.open(result["archive"], "rb") as f:   # the verified archive is kept
+            self.assertEqual(f.read(), self.data)
+
+    def test_simulated_verification_failure_keeps_archive(self):
+        with mock.patch.object(rotate.verifier, "verify_rotation",
+                               side_effect=RotatorError(errors.ROTATION_VERIFY_FAILED, "simulated")):
+            result = self.rotate()
+        self.assertEqual(result["error_code"], errors.ROTATION_VERIFY_FAILED)
+        self.assertNotIn("archive_removed", result)
+        self.assertEqual(self.archive_files(), [ARCHIVE_NAME])
+
     def test_archive_only_skips_rotation_check(self):
         result = self.rotate(truncate=False)
         self.assertNotIn("rotation_checks", result)
