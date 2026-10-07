@@ -124,6 +124,10 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
                 verifier.verify_copy(archive_path, snap["sha256"], snap["bytes"])
                 archive_verified = True
 
+        # From here on the archive holds a verified copy of the log. Record where it is,
+        # so even an error result after truncation tells the caller where the data went.
+        info["archive"] = archive_path
+
         archived = snap["bytes"]
         caught_up = 0
         bytes_lost = 0
