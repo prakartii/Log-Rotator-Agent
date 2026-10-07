@@ -120,5 +120,43 @@ class FailedVerificationTest(VerifyRotationTestCase):
         self.assertFalse(ctx.exception.details["checks"]["appendable"])
 
 
+@unittest.skipUnless(os.path.isdir("/proc"), "requires Linux /proc")
+class WriterAttachmentTest(VerifyRotationTestCase):
+    def start_writer(self):
+        proc = subprocess.Popen([sys.executable, str(PROJECT_ROOT / "writer.py"), str(self.log),
+                                 "--rate", "100", "--quiet"], stdout=subprocess.DEVNULL)
+        self.addCleanup(lambda: (proc.poll() is None and proc.terminate(), proc.wait(timeout=5)))
+        deadline = time.monotonic() + 5
+        start_size = os.stat(self.log).st_size
+        while os.stat(self.log).st_size == start_size and time.monotonic() < deadline:
+            time.sleep(0.02)
+        return proc
+
+    def test_running_writer_is_still_attached(self):
+        writer = self.start_writer()
+        self.truncate_in_place()
+        result = verifier.verify_rotation(self.log, self.before, writer_pids=[writer.pid])
+        self.assertEqual(result["writers_attached"], [writer.pid])
+        self.assertTrue(result["checks"]["writers_attached"])
+
+    def test_writer_that_exited_fails(self):
+        writer = self.start_writer()
+        self.truncate_in_place()
+        writer.terminate()
+        writer.wait(timeout=5)
+        err = self.assertRotationFails("writers_attached", writer_pids=[writer.pid])
+        self.assertEqual(err.details["writers_before"], [writer.pid])
+        self.assertEqual(err.details["writers_after"], [])
+
+    def test_writer_on_deleted_inode_is_not_attached(self):
+        """After rm + recreate the writer holds the OLD inode; verification catches it."""
+        writer = self.start_writer()
+        self.log.unlink()
+        self.log.write_bytes(b"")
+        with self.assertRaises(RotatorError) as ctx:
+            verifier.verify_rotation(self.log, self.before, writer_pids=[writer.pid])
+        self.assertFalse(ctx.exception.details["checks"]["same_inode"])
+
+
 if __name__ == "__main__":
     unittest.main()
