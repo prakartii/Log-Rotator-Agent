@@ -375,6 +375,21 @@ class WatchWriterTest(RotateTestCase):
         self.assertEqual(result["steps"][-1]["step"], "watch_writer")
         self.assertIsNone(writer.poll())
 
+    def test_idle_writer_gives_warning_not_error(self):
+        # A process that holds the log open with O_APPEND but never writes.
+        idle = ("import os, sys, time; fd = os.open(sys.argv[1], os.O_WRONLY | os.O_APPEND); "
+                "time.sleep(30)")
+        self.start_process("-c", idle, str(self.log))
+        result = self.rotate(watch_writer=0.3)
+        self.assertEqual(result["status"], "success")
+        self.assertFalse(result["writer_continues"])
+        self.assertTrue(any("did not grow" in w for w in result["warnings"]))
+
+    def test_no_writers_means_no_watch_step(self):
+        result = self.rotate(watch_writer=5)
+        self.assertNotIn("watch_writer", [s["step"] for s in result["steps"]])
+        self.assertNotIn("writer_continues", result)
+
 
 class FailedRotationTest(RotateTestCase):
     def fail_with(self, target, code):
