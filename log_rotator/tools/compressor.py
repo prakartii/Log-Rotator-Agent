@@ -34,15 +34,15 @@ _LABEL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _MAX_NAME_ATTEMPTS = 100
 
 
-def archive_name(log_path, when: datetime = None, label: str = None) -> str:
-    """apache_error.log -> apache_error.log[.<label>].2026-10-07T195312.gz"""
+def archive_name(log_path, when: datetime = None, label: str = None, compressed: bool = True) -> str:
+    """apache_error.log -> apache_error.log[.<label>].2026-10-07T195312[.gz]"""
     if label is not None and not _LABEL_RE.match(label):
         raise RotatorError(errors.INVALID_REQUEST,
                            f"Archive label may only contain letters, digits, '-' and '_': {label!r}",
                            label=label)
     stamp = (when or datetime.now()).strftime("%Y-%m-%dT%H%M%S")
     parts = [os.path.basename(os.fspath(log_path))] + ([label] if label else []) + [stamp]
-    return ".".join(parts) + ".gz"
+    return ".".join(parts) + (".gz" if compressed else "")
 
 
 def ensure_archive_dir(archive_dir=None) -> Path:
@@ -140,6 +140,26 @@ def append_gzip_member(archive_path, data: bytes, level: int = None) -> dict:
     if gzip.decompress(member) != data:
         raise RotatorError(errors.COMPRESSION_FAILED, "Extra gzip member failed its in-memory check",
                            archive=archive_path)
+    archive_size = _append_with_rollback(archive_path, member)
+    return errors.success(
+        "append_gzip_member",
+        archive=archive_path,
+        bytes_added=len(data),
+        member_size=len(member),
+        archive_size=archive_size,
+    )
+
+
+def append_raw(archive_path, data: bytes) -> dict:
+    """Append `data` unchanged to an uncompressed archive (same rollback as above)."""
+    archive_path = os.fspath(archive_path)
+    archive_size = _append_with_rollback(archive_path, data)
+    return errors.success("append_raw", archive=archive_path, bytes_added=len(data),
+                          archive_size=archive_size)
+
+
+def _append_with_rollback(archive_path: str, payload: bytes) -> int:
+    """O_APPEND + fsync `payload`; on failure ftruncate() back to the previous size."""
     try:
         fd = os.open(archive_path, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW)
     except OSError as err:
@@ -148,7 +168,7 @@ def append_gzip_member(archive_path, data: bytes, level: int = None) -> dict:
     try:
         old_size = os.fstat(fd).st_size
         try:
-            _write_all(fd, member)
+            _write_all(fd, payload)
             os.fsync(fd)
         except OSError as err:
             os.ftruncate(fd, old_size)  # roll back to the last verified state
@@ -157,21 +177,19 @@ def append_gzip_member(archive_path, data: bytes, level: int = None) -> dict:
                                archive=archive_path, errno=err.errno) from None
     finally:
         os.close(fd)
+    return old_size + len(payload)
 
-    return errors.success(
-        "append_gzip_member",
-        archive=archive_path,
-        bytes_added=len(data),
-        member_size=len(member),
-        archive_size=old_size + len(member),
-    )
+
+def publish_archive(tmp_path, archive_dir, name: str) -> Path:
+    """Public wrapper: atomically give a finished temp file its final, unused name."""
+    return _publish(Path(tmp_path), Path(archive_dir), name)
 
 
 def _publish(tmp_path: Path, archive_dir: Path, name: str) -> Path:
     """Give the finished temp file its final name without ever replacing an existing file."""
-    stem = name[:-3] if name.endswith(".gz") else name
+    stem, ext = (name[:-3], ".gz") if name.endswith(".gz") else (name, "")
     for attempt in range(_MAX_NAME_ATTEMPTS):
-        candidate = archive_dir / (name if attempt == 0 else f"{stem}-{attempt}.gz")
+        candidate = archive_dir / (name if attempt == 0 else f"{stem}-{attempt}{ext}")
         try:
             os.link(tmp_path, candidate)  # atomic; fails with EEXIST instead of overwriting
         except FileExistsError:
