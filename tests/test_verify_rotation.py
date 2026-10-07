@@ -158,5 +158,35 @@ class WriterAttachmentTest(VerifyRotationTestCase):
         self.assertFalse(ctx.exception.details["checks"]["same_inode"])
 
 
+class WatchLogGrowthTest(VerifyRotationTestCase):
+    def test_idle_log_reports_no_growth(self):
+        self.truncate_in_place()
+        result = verifier.watch_log_growth(self.log, self.before.st_ino, timeout=0.2, interval=0.05)
+        self.assertEqual(result["status"], "success")
+        self.assertFalse(result["grew"])
+        self.assertGreaterEqual(len(result["samples"]), 2)
+        self.assertTrue(all(s["inode"] == self.before.st_ino for s in result["samples"]))
+
+    def test_running_writer_makes_same_inode_grow(self):
+        self.truncate_in_place()
+        writer = subprocess.Popen([sys.executable, str(PROJECT_ROOT / "writer.py"), str(self.log),
+                                   "--rate", "200", "--quiet"], stdout=subprocess.DEVNULL)
+        try:
+            result = verifier.watch_log_growth(self.log, self.before.st_ino, timeout=5, interval=0.05)
+        finally:
+            writer.terminate()
+            writer.wait(timeout=5)
+        self.assertTrue(result["grew"])
+        self.assertGreater(result["size_end"], result["size_start"])
+        self.assertEqual(result["inode"], self.before.st_ino)
+
+    def test_inode_change_while_watching_fails(self):
+        self.log.unlink()
+        self.log.write_bytes(b"")
+        with self.assertRaises(RotatorError) as ctx:
+            verifier.watch_log_growth(self.log, self.before.st_ino, timeout=0.2)
+        self.assertEqual(ctx.exception.code, errors.ROTATION_VERIFY_FAILED)
+
+
 if __name__ == "__main__":
     unittest.main()
