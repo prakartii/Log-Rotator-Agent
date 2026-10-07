@@ -29,7 +29,9 @@ log_rotator/
         processes.py     # which processes have a log open (/proc/<pid>/fd, fdinfo)
         snapshot.py      # snapshot_log(): exact byte-range copy of the open log
         compressor.py    # compress_log(), archive_name(): atomic gzip archives
-        verifier.py      # verify_archive(): read the archive back and prove it matches
+        verifier.py      # verify_archive(), verify_copy(): read the archive back and prove it matches
+        truncator.py     # truncate_log(): ftruncate() on the open descriptor
+    rotate.py            # rotate_log(): the full safe-rotation pipeline
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
@@ -53,6 +55,8 @@ the results directly as JSON.
 | `compress_log(snapshot)` | gzips the snapshot into `rotated_logs/` | temp file + `fsync` + `link()` + `unlink` + directory `fsync` |
 | `archive_name(log)` | `apache_error.log.2026-10-07T195312.gz` (optional label, e.g. `2026-09`) | |
 | `verify_archive(archive, sha256, size)` | Decompresses the archive from disk and compares it with the snapshot | `O_NOFOLLOW`, `fstat`, gzip CRC-32 + length, SHA-256 |
+| `truncate_log(fd)` | Empties the log in place; reports inode and size before/after | `ftruncate` on the open descriptor |
+| `rotate_log(log, ...)` | The whole pipeline below, returns one structured result | everything above |
 
 ### How an archive is written safely
 
@@ -95,7 +99,99 @@ The agent refuses to touch a file when:
 Error codes: `INVALID_REQUEST`, `LOG_NOT_FOUND`, `AMBIGUOUS_LOG`,
 `NOT_A_REGULAR_FILE`, `OUTSIDE_ALLOWED_DIR`, `SYMLINK_REJECTED`,
 `HARDLINK_REJECTED`, `FILE_CHANGED`, `PERMISSION_DENIED`, `SNAPSHOT_FAILED`,
-`COMPRESSION_FAILED`, `VERIFY_FAILED`, `OS_ERROR`.
+`COMPRESSION_FAILED`, `VERIFY_FAILED`, `TRUNCATE_FAILED`, `OS_ERROR`.
+
+## Safe rotation: `rotate_log()`
+
+```python
+from log_rotator.rotate import rotate_log
+
+rotate_log("the apache error logs")            # archive + gzip + truncate
+rotate_log("apache_error", truncate=False)     # archive only
+rotate_log("apache_error", compress=False)     # plain (uncompressed) archive
+rotate_log("apache_error", label="2026-09")    # apache_error.log.2026-09.<time>.gz
+rotate_log("apache_error", dry_run=True)       # report what would happen, change nothing
+```
+
+Pipeline (every step is timed and listed in the result's `steps`):
+
+```
+identify ─► open(O_RDWR) ─► snapshot ─► compress ─► verify ─► catch up ─► ftruncate(fd, 0)
+                │                                              │
+     same descriptor for every step                 new lines the writer appended
+     (same inode, even if renamed)                  during rotation -> archive
+```
+
+### Why truncate instead of delete?
+
+The writer process holds a **file descriptor** pointing at the log's **inode**, not its name.
+
+| | `rm log` + create a new one | `ftruncate(fd, 0)` (what we do) |
+|---|---|---|
+| Inode | new inode | **same inode** |
+| Writer's descriptor | still points at the old, now nameless inode | still valid |
+| Writer's new lines | silently lost (nobody can see them) | appear in the log again from offset 0 |
+| Disk space | not freed until the writer restarts | freed immediately |
+| Writer process | must be restarted / signalled | **keeps running** |
+
+The writer must open the log with `O_APPEND`. Then the kernel moves its offset
+to the end of the file before every write, so after truncation it writes at offset 0.
+A writer without `O_APPEND` keeps its old offset and leaves a hole of zero bytes;
+`get_log_info()` and `rotate_log()` warn about such writers.
+
+### Lines written during rotation (catch-up)
+
+Snapshot, compress and verify take a little time (≈200 ms for a 3 MiB log), and
+the writer keeps appending. Truncating straight away would cut those lines off.
+So just before `ftruncate()` the agent `fstat()`s the log again, reads only the new
+tail with `pread()` and appends it to the verified archive as an **extra gzip
+member** (gzip allows several members; `gunzip` outputs them in order). This
+repeats until the log stops growing (at most `MAX_CATCHUP_ROUNDS`). If appending
+fails, the archive is rolled back with `ftruncate()` to its last verified size.
+
+The result reports `caught_up_bytes` and `bytes_lost` (bytes that arrived in the
+microseconds between the final check and `ftruncate()`, normally 0). In a live test
+with `writer.py` at 500 lines/s, every line number appears exactly once across the
+archive and the live log.
+
+### Failure safety
+
+| Failure | Log truncated? | Archive |
+|---|---|---|
+| log missing / outside `logs/` / symlink / no permission | no | none created |
+| snapshot fails | no | none (snapshot removed) |
+| compression fails (e.g. disk full) | no | none (temp file removed) |
+| verification fails (corrupt / wrong content) | no | **removed** (not trustworthy) |
+| truncation fails | no | kept (it is verified) |
+
+Every failure returns `"status": "error"`, an `error_code`, `"truncated": false`
+and `"log_unchanged": true`.
+
+### Example result
+
+```json
+{
+  "status": "success", "action": "rotate", "dry_run": false,
+  "log": "/home/user/Log-Rotator-Agent/logs/apache_error.log",
+  "inode_before": 1234567, "inode_after": 1234567, "inode_preserved": true,
+  "original_size": 3186979, "size_after": 171,
+  "archive": "/home/user/Log-Rotator-Agent/rotated_logs/apache_error.log.2026-10-07T160131.gz",
+  "compressed": true, "archive_size": 295100, "compression_ratio": 0.0925,
+  "bytes_archived": 3191349, "caught_up_bytes": 4370, "bytes_lost": 0,
+  "truncated": true,
+  "open_by": [{"pid": 456, "command": "python3 writer.py", "fd": 3, "access": "write", "append": true, "offset": 3191349}],
+  "warnings": [],
+  "steps": [
+    {"step": "identify", "ok": true, "ms": 1.98},   {"step": "open", "ok": true, "ms": 3.1},
+    {"step": "snapshot", "ok": true, "ms": 28.87},  {"step": "compress", "ok": true, "ms": 52.66},
+    {"step": "verify_archive", "ok": true, "ms": 9.78},
+    {"step": "catch_up", "ok": true, "ms": 2.14, "bytes": 4370, "rounds": 1},
+    {"step": "truncate", "ok": true, "ms": 1.55}
+  ]
+}
+```
+
+`size_after` can already be above 0: the writer continued writing the moment the log was emptied.
 
 ## Simulated writer
 
