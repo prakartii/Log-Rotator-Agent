@@ -49,6 +49,10 @@ class ArchiveNameTest(unittest.TestCase):
         self.assertEqual(compressor.archive_name("/x/logs/apache_error.log", when=self.when, label="2026-09"),
                          "apache_error.log.2026-09.2026-10-07T195312.gz")
 
+    def test_uncompressed_name_has_no_gz(self):
+        self.assertEqual(compressor.archive_name("app.log", when=self.when, compressed=False),
+                         "app.log.2026-10-07T195312")
+
     def test_unsafe_label_rejected(self):
         for label in ("../etc", "a b", "x/y", ""):
             with self.assertRaises(RotatorError) as ctx:
@@ -178,6 +182,40 @@ class AppendGzipMemberTest(CompressorTestCase):
         with self.assertRaises(RotatorError):
             compressor.append_gzip_member(link, b"x")
         self.assertEqual(self.archive.read_bytes(), self.verified_bytes)
+
+
+class PlainArchiveTest(CompressorTestCase):
+    def make_tmp(self, data=b"plain\n"):
+        self.archives.mkdir(exist_ok=True)
+        tmp = self.archives / ".tmp-plain"
+        tmp.write_bytes(data)
+        return tmp
+
+    def test_publish_plain_archive(self):
+        final = compressor.publish_archive(self.make_tmp(), self.archives, "app.log.2026-10-07T120000")
+        self.assertEqual(final.name, "app.log.2026-10-07T120000")
+        self.assertEqual(final.read_bytes(), b"plain\n")
+        self.assertEqual(self.archive_files(), ["app.log.2026-10-07T120000"])
+
+    def test_plain_name_clash_gets_suffix_without_gz(self):
+        (self.archives / "app.log.2026-10-07T120000").parent.mkdir(exist_ok=True)
+        (self.archives / "app.log.2026-10-07T120000").write_bytes(b"older")
+        final = compressor.publish_archive(self.make_tmp(), self.archives, "app.log.2026-10-07T120000")
+        self.assertEqual(final.name, "app.log.2026-10-07T120000-1")
+        self.assertEqual((self.archives / "app.log.2026-10-07T120000").read_bytes(), b"older")
+
+    def test_append_raw(self):
+        final = compressor.publish_archive(self.make_tmp(b"one\n"), self.archives, "plain")
+        result = compressor.append_raw(final, b"two\n")
+        self.assertEqual(final.read_bytes(), b"one\ntwo\n")
+        self.assertEqual(result["archive_size"], 8)
+
+    def test_append_raw_rolls_back_on_failure(self):
+        final = compressor.publish_archive(self.make_tmp(b"verified\n"), self.archives, "plain")
+        with mock.patch.object(compressor.os, "fsync", side_effect=OSError(5, "Input/output error")):
+            with self.assertRaises(RotatorError):
+                compressor.append_raw(final, b"never kept\n")
+        self.assertEqual(final.read_bytes(), b"verified\n")
 
 
 class CompressionFailureTest(CompressorTestCase):
