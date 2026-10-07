@@ -349,6 +349,33 @@ class LiveWriterRotationTest(RotateTestCase):
                          f"lost or duplicated lines (bytes_lost={result['bytes_lost']})")
 
 
+@unittest.skipUnless(os.path.isdir("/proc"), "requires Linux")
+class WatchWriterTest(RotateTestCase):
+    def start_process(self, *args):
+        import subprocess
+        import sys
+        import time
+
+        proc = subprocess.Popen([sys.executable, *args], stdout=subprocess.DEVNULL)
+        self.addCleanup(lambda: (proc.poll() is None and proc.terminate(), proc.wait(timeout=5)))
+        from log_rotator.tools.processes import find_open_handles
+        deadline = time.monotonic() + 5
+        while not find_open_handles(self.log) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        return proc
+
+    def test_watch_shows_writer_continuing_on_same_inode(self):
+        writer = self.start_process(str(Path(__file__).resolve().parent.parent / "writer.py"),
+                                    str(self.log), "--rate", "200", "--quiet")
+        result = self.rotate(watch_writer=5)
+        self.assertEqual(result["status"], "success", result)
+        self.assertTrue(result["writer_continues"])
+        self.assertGreater(result["growth"]["size_end"], result["growth"]["size_start"])
+        self.assertTrue(all(s["inode"] == self.inode for s in result["growth"]["samples"]))
+        self.assertEqual(result["steps"][-1]["step"], "watch_writer")
+        self.assertIsNone(writer.poll())
+
+
 class FailedRotationTest(RotateTestCase):
     def fail_with(self, target, code):
         return mock.patch.object(target[0], target[1], side_effect=RotatorError(code, "simulated failure"))
