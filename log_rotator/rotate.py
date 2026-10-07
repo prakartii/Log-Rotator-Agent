@@ -55,7 +55,8 @@ class _StepLog:
 
 
 def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run=False,
-               label=None, log_dir=None, allowed_roots=None, now: datetime = None) -> dict:
+               label=None, log_dir=None, allowed_roots=None, now: datetime = None,
+               watch_writer: float = 0.0) -> dict:
     """Archive the active log and empty it in place.
 
     log          - name, alias, description or path of the log (default: apache_error.log)
@@ -64,6 +65,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
     truncate     - False = archive only, leave the log as it is
     dry_run      - validate and report what would happen, change nothing
     label        - optional tag in the archive name, e.g. "2026-09"
+    watch_writer - seconds to watch the log grow again after rotation (0 = don't wait)
     """
     steps = _StepLog()
     info = {"action": "rotate", "dry_run": dry_run}
@@ -153,6 +155,16 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
                 rotation_check = verifier.verify_rotation(path, before, writer_pids=writer_pids)
                 s["writers_attached"] = rotation_check["writers_attached"]
             info["rotation_checks"] = rotation_check["checks"]
+
+            if watch_writer > 0 and writer_pids:
+                with steps.step("watch_writer") as s:
+                    growth = verifier.watch_log_growth(path, before.st_ino, timeout=watch_writer)
+                    s.update(grew=growth["grew"], samples=len(growth["samples"]))
+                info["writer_continues"] = growth["grew"]
+                info["growth"] = {k: growth[k] for k in ("size_start", "size_end", "samples")}
+                if not growth["grew"]:
+                    info["warnings"].append(
+                        f"log did not grow within {watch_writer}s after rotation (writer idle?)")
 
         after = os.fstat(fd)
         archive_size = os.stat(archive_path).st_size
