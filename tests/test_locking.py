@@ -52,6 +52,15 @@ class AcquireTest(unittest.TestCase):
         self.assertIsNone(locking.acquire(self.open(), fcntl.LOCK_EX, timeout=0.2))
         self.assertGreaterEqual(time.monotonic() - start, 0.2)
 
+    def test_lock_released_while_waiting_is_acquired(self):
+        import threading
+        holder = self.open()
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        threading.Timer(0.1, fcntl.flock, (holder, fcntl.LOCK_UN)).start()
+        waited = locking.acquire(self.open(), fcntl.LOCK_EX, timeout=2)
+        self.assertIsNotNone(waited)
+        self.assertGreaterEqual(waited, 90)
+
 
 if __name__ == "__main__":
     unittest.main()
