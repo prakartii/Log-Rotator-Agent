@@ -229,6 +229,15 @@ class ConcurrentRotationTest(RotateTestCase):
             pass
 
 
+class WriterLockRotationTest(RotateTestCase):
+    """Cooperative writers (shared flock per write) are paused only around ftruncate()."""
+
+    def test_writer_lock_is_acquired_without_writers(self):
+        result = self.rotate()
+        self.assertTrue(result["writer_lock"]["acquired"])
+        self.assertEqual(result["warnings"], [])
+
+
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
         result = self.rotate(compress=False)
