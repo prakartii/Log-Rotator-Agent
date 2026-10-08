@@ -165,6 +165,13 @@ class RotationLockAcrossProcessesTest(unittest.TestCase):
                 pass
         self.assertEqual(ctx.exception.details["locked_by_pid"], self.holder.pid)
 
+    def test_killed_rotator_releases_the_lock(self):
+        """The kernel drops flocks when a process dies: no stale lock is left behind."""
+        self.holder.kill()  # SIGKILL: no cleanup code in the holder runs
+        self.holder.wait(timeout=5)
+        with locking.rotation_lock(self.log, timeout=0):
+            pass
+
 
 if __name__ == "__main__":
     unittest.main()
