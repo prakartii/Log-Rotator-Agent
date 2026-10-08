@@ -127,5 +127,44 @@ class RotationLockTest(unittest.TestCase):
         self.assertEqual(ctx.exception.code, errors.SYMLINK_REJECTED)
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+HOLD_LOCK = """
+import sys, time
+from log_rotator.tools import locking
+with locking.rotation_lock(sys.argv[1]):
+    print("locked", flush=True)
+    time.sleep(30)
+"""
+
+
+class RotationLockAcrossProcessesTest(unittest.TestCase):
+    """The real situation: another rotator PROCESS holds the lock."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.log = Path(self.tmp.name) / "apache_error.log"
+        self.log.write_bytes(b"line\n")
+        import subprocess
+        import sys
+        self.holder = subprocess.Popen([sys.executable, "-c", HOLD_LOCK, str(self.log)],
+                                       cwd=PROJECT_ROOT, stdout=subprocess.PIPE, text=True)
+        self.assertEqual(self.holder.stdout.readline().strip(), "locked")
+
+    def tearDown(self):
+        if self.holder.poll() is None:
+            self.holder.kill()
+        self.holder.wait(timeout=5)
+        self.holder.stdout.close()
+        self.tmp.cleanup()
+
+    def test_refusal_names_the_holding_process(self):
+        from log_rotator.errors import RotatorError
+        with self.assertRaises(RotatorError) as ctx:
+            with locking.rotation_lock(self.log, timeout=0):
+                pass
+        self.assertEqual(ctx.exception.details["locked_by_pid"], self.holder.pid)
+
+
 if __name__ == "__main__":
     unittest.main()
