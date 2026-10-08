@@ -99,6 +99,13 @@ class ListLogsTest(LogInfoTestCase):
         names = [l["name"] for l in log_info.list_logs(self.logs)["logs"]]
         self.assertEqual(names, ["apache_error.log", "app.log", "nginx_access.log"])
 
+    def test_rotation_lock_files_are_not_listed_as_logs(self):
+        from log_rotator.tools import locking
+        with locking.rotation_lock(self.apache):
+            names = [l["name"] for l in log_info.list_logs(self.logs)["logs"]]
+        self.assertTrue(locking.lock_path_for(self.apache).exists())
+        self.assertEqual(names, ["apache_error.log", "app.log", "nginx_access.log"])
+
     def test_missing_directory(self):
         with self.assertRaises(RotatorError) as ctx:
             log_info.list_logs(self.logs / "missing")
