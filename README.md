@@ -165,6 +165,23 @@ microseconds between the final check and `ftruncate()`, normally 0). In a live t
 with `writer.py` at 500 lines/s, every line number appears exactly once across the
 archive and the live log.
 
+### One rotation at a time (rotation lock)
+
+Two rotators running on the same log at once would both archive the same bytes,
+and the second `ftruncate()` could cut off lines the first already counted as safe.
+So every rotation first takes an **exclusive `flock()`** on a hidden lock file next
+to the log (`logs/.apache_error.log.rotate.lock`):
+
+- The lock is tried with `LOCK_NB`: a second rotation fails immediately with
+  `ROTATION_IN_PROGRESS` and `"log_unchanged": true`, or waits up to `lock_timeout` seconds.
+- The holder writes its pid into the lock file, so the error says who is rotating
+  (`"locked_by_pid": 4711`).
+- The lock file is **never deleted**. Otherwise a third rotator could create a new
+  lock file (a new inode) and lock that, while the first still holds the old one.
+- The kernel releases a `flock` when the descriptor is closed or the process dies,
+  so a crashed (even `kill -9`ed) rotator never leaves a stale lock behind.
+- A dry run changes nothing, so it does not need the lock.
+
 ### Failure safety
 
 | Failure | Log truncated? | Archive |
