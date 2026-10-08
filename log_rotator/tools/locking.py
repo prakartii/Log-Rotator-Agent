@@ -28,7 +28,9 @@ releases them automatically when the process closes the descriptor or dies -
 a crashed rotator can never leave a log locked forever.
 """
 
+import fcntl
 import os
+import time
 from pathlib import Path
 
 
@@ -36,3 +38,21 @@ def lock_path_for(log_path) -> Path:
     """The rotation lock file for `log_path`: a hidden file in the same directory."""
     log_path = Path(os.fspath(log_path))
     return log_path.with_name(f".{log_path.name}.rotate.lock")
+
+
+def acquire(fd: int, operation: int, timeout: float, poll: float = 0.02):
+    """flock(fd, operation) without blocking forever.
+
+    LOCK_NB makes flock() fail with EWOULDBLOCK instead of sleeping inside
+    the kernel, so we can retry until `timeout` seconds have passed.
+    Returns the milliseconds spent waiting, or None if the lock stayed busy.
+    """
+    start = time.monotonic()
+    while True:
+        try:
+            fcntl.flock(fd, operation | fcntl.LOCK_NB)
+            return round((time.monotonic() - start) * 1000, 2)
+        except BlockingIOError:
+            if time.monotonic() - start >= timeout:
+                return None
+            time.sleep(poll)
