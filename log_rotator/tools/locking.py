@@ -97,6 +97,7 @@ def rotation_lock(log_path, timeout: float = None):
             raise RotatorError(errors.ROTATION_IN_PROGRESS,
                                f"Another rotation of {log_path} is already running",
                                lock_file=str(lock_path))
+        _write_holder(fd)
         yield {"lock_file": str(lock_path), "waited_ms": waited}
     finally:
         os.close(fd)  # closing the descriptor releases the flock
