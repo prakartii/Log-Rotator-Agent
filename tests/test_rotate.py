@@ -453,6 +453,44 @@ class LiveWriterRotationTest(RotateTestCase):
 
 
 @unittest.skipUnless(os.path.isdir("/proc"), "requires Linux")
+class CooperativeWriterRotationTest(RotateTestCase):
+    """A real writer.py --cooperative at 2000 lines/s, rotated three times in a row."""
+
+    def test_repeated_rotation_never_loses_a_line(self):
+        import re
+        import subprocess
+        import sys
+        import time
+
+        self.log.write_bytes(b"")
+        writer = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve().parent.parent / "writer.py"),
+             str(self.log), "--rate", "2000", "--cooperative", "--quiet"],
+            stdout=subprocess.DEVNULL)
+        results = []
+        try:
+            for _ in range(3):
+                time.sleep(0.3)
+                result = self.rotate(now=None)
+                self.assertEqual(result["status"], "success", result)
+                self.assertTrue(result["writer_lock"]["acquired"])
+                self.assertEqual(result["bytes_lost"], 0)
+                results.append(result)
+            time.sleep(0.2)
+            self.assertIsNone(writer.poll(), "writer must still be running")
+        finally:
+            writer.terminate()
+            writer.wait(timeout=5)
+
+        text = self.log.read_text()
+        for result in results:
+            with gzip.open(result["archive"], "rb") as f:
+                text += f.read().decode()
+        seqs = [int(s) for s in re.findall(r"seq=(\d+)\n", text)]
+        self.assertEqual(sorted(seqs), list(range(1, max(seqs) + 1)), "a line was lost or duplicated")
+
+
+@unittest.skipUnless(os.path.isdir("/proc"), "requires Linux")
 class WatchWriterTest(RotateTestCase):
     def start_process(self, *args):
         import subprocess
