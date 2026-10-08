@@ -155,6 +155,9 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
                 writer_lock = writer_guard.enter_context(locking.writer_lock(fd))
                 s.update(writer_lock)
             info["writer_lock"] = writer_lock
+            if not writer_lock["acquired"]:
+                info["warnings"].append("a writer held its flock too long; truncating without the "
+                                        "writer lock (lines written in the last moment may be lost)")
             with writer_guard:
                 if writer_lock["acquired"]:
                     # Cooperative writers are paused now: whatever is in the log is
