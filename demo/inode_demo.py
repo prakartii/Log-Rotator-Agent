@@ -42,6 +42,19 @@ def wait_for_size(path, size, writer, timeout=60.0):
         time.sleep(0.05)
 
 
+def writer_fds(pid, log):
+    """(fd, target) for each descriptor of `pid` that points at `log`, even after it was deleted."""
+    found = []
+    for fd in sorted(os.listdir(f"/proc/{pid}/fd"), key=int):
+        try:
+            target = os.readlink(f"/proc/{pid}/fd/{fd}")
+        except OSError:
+            continue  # the descriptor was closed meanwhile
+        if target.removesuffix(" (deleted)") == str(log):
+            found.append((int(fd), target))
+    return found
+
+
 def wrong_way(log_dir: Path, rate: float) -> None:
     """For contrast: 'rotate' by deleting and recreating the log (what NOT to do)."""
     log = log_dir / "wrong_way.log"
@@ -59,8 +72,8 @@ def wrong_way(log_dir: Path, rate: float) -> None:
         time.sleep(1)
 
         row("+1s", log, writer)
-        target = os.readlink(f"/proc/{writer.pid}/fd/3")
-        print(f"  writer's fd 3 -> {target}")
+        for fd, target in writer_fds(writer.pid, log):
+            print(f"  writer's fd {fd} -> {target}")
         print("  The name points to a NEW inode that stays empty. The writer still writes to the")
         print("  OLD inode, which has no name any more: its lines are lost and its disk space is")
         print("  not freed until the writer is restarted.")
