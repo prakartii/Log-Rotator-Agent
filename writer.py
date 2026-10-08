@@ -18,6 +18,9 @@ OS concepts shown here:
   the writer continues at its OLD offset, and the kernel fills the gap
   with a "hole" of zero bytes (a sparse file). That is why safe rotation
   with truncate requires writers that use O_APPEND.
+* With --cooperative the writer takes a shared flock() around every
+  write(). The rotator's exclusive flock then pauses it for the few
+  milliseconds around ftruncate(), so not a single line can be lost.
 * Each status line shows the descriptor's offset (lseek), fstat() size,
   inode number and link count. If someone deletes the log instead of
   truncating it, nlink drops to 0: the writer is now writing into a file
