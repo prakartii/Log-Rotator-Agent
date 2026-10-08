@@ -51,8 +51,7 @@ def wrong_way(log_dir: Path, rate: float) -> None:
                                "--prefill-mb", "1", "--rate", str(rate), "--quiet"],
                               stdout=subprocess.DEVNULL)
     try:
-        while not log.exists() or os.stat(log).st_size < 1024 * 1024:
-            time.sleep(0.05)
+        wait_for_size(log, 1024 * 1024, writer)
         row("BEFORE", log, writer)
 
         log.unlink()              # delete the active log ...
