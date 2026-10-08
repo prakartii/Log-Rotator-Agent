@@ -101,3 +101,22 @@ def rotation_lock(log_path, timeout: float = None):
         yield {"lock_file": str(lock_path), "waited_ms": waited}
     finally:
         os.close(fd)  # closing the descriptor releases the flock
+
+
+@contextmanager
+def writer_lock(log_fd: int, timeout: float = None):
+    """Hold back cooperative writers (exclusive flock on the log) inside a `with` block.
+
+    Waits up to `timeout` seconds (default: config.WRITER_LOCK_TIMEOUT) for
+    writes in progress to finish. If a writer keeps its shared lock longer,
+    this does NOT fail: rotation continues unprotected and `acquired` is False.
+    Yields {"acquired": bool, "waited_ms": float | None}.
+    """
+    timeout = config.WRITER_LOCK_TIMEOUT if timeout is None else timeout
+    waited = acquire(log_fd, fcntl.LOCK_EX, timeout)
+    try:
+        yield {"acquired": waited is not None, "waited_ms": waited}
+    finally:
+        if waited is not None:
+            # Unlock explicitly: the rotator keeps using log_fd after this block.
+            fcntl.flock(log_fd, fcntl.LOCK_UN)
