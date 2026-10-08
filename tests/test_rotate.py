@@ -251,6 +251,25 @@ class WriterLockRotationTest(RotateTestCase):
         self.assertIn("writer lock", result["warnings"][-1])
         self.assertNotIn("final_catch_up", [s["step"] for s in result["steps"]])
 
+    def test_final_catch_up_archives_the_last_write_before_the_lock(self):
+        real_writer_lock = rotate.locking.writer_lock
+
+        @contextlib.contextmanager
+        def write_just_before_lock(fd, timeout=None):
+            with open(self.log, "ab") as f:
+                f.write(b"last line before the lock\n")  # after the normal catch-up
+            with real_writer_lock(fd, timeout) as info:
+                yield info
+
+        with mock.patch.object(rotate.locking, "writer_lock", write_just_before_lock):
+            result = self.rotate()
+
+        final = next(s for s in result["steps"] if s["step"] == "final_catch_up")
+        self.assertEqual(final["bytes"], len(b"last line before the lock\n"))
+        self.assertEqual(result["bytes_lost"], 0)
+        with gzip.open(result["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data + b"last line before the lock\n")
+
 
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
