@@ -199,6 +199,13 @@ class WriterLockTest(unittest.TestCase):
         with locking.writer_lock(self.open(), timeout=0):
             self.assertIsNone(locking.acquire(writer, fcntl.LOCK_SH, timeout=0))
 
+    def test_writers_can_continue_after_the_block(self):
+        rotator = self.open()
+        writer = self.open(os.O_WRONLY | os.O_APPEND)
+        with locking.writer_lock(rotator, timeout=0):
+            pass
+        self.assertIsNotNone(locking.acquire(writer, fcntl.LOCK_SH, timeout=0))
+
 
 if __name__ == "__main__":
     unittest.main()
