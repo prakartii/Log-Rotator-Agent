@@ -31,6 +31,17 @@ def row(label, path, writer):
     print(f"  {label:<8} inode = {st.st_ino:<20} size = {human_size(st.st_size):>10}   writer pid {writer.pid}: {alive}")
 
 
+def wait_for_size(path, size, writer, timeout=60.0):
+    """Wait until the writer has filled `path` to `size` bytes; fail instead of hanging."""
+    deadline = time.monotonic() + timeout
+    while not path.exists() or os.stat(path).st_size < size:
+        if writer.poll() is not None:
+            raise SystemExit(f"writer exited early with code {writer.returncode}")
+        if time.monotonic() > deadline:
+            raise SystemExit(f"timed out after {timeout:g}s waiting for {path} to reach {size} bytes")
+        time.sleep(0.05)
+
+
 def wrong_way(log_dir: Path, rate: float) -> None:
     """For contrast: 'rotate' by deleting and recreating the log (what NOT to do)."""
     log = log_dir / "wrong_way.log"
