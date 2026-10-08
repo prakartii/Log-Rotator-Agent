@@ -203,6 +203,18 @@ a cooperative writer `bytes_lost` is always 0. The test suite checks this by rot
 three times while `writer.py --cooperative` writes 2000 lines/s: every line number
 appears exactly once across the archives and the live log.
 
+`flock()` locks are **advisory**: the kernel only enforces them between processes
+that ask for them. A writer that never calls `flock()` (like most real daemons) is
+not paused. For such writers the normal catch-up is the protection. If a cooperative
+writer holds its lock longer than `WRITER_LOCK_TIMEOUT` (2 s), the rotation still
+finishes but adds a warning and reports `"writer_lock": {"acquired": false}`.
+
+| Writer | Paused around `ftruncate()`? | Lines that can be lost |
+|---|---|---|
+| `writer.py --cooperative` (shared `flock` per write) | yes | none |
+| normal `O_APPEND` writer | no | only writes in the microseconds after the final catch-up (reported in `bytes_lost`) |
+| writer without `O_APPEND` | no | none lost, but a hole of zero bytes appears (warning) |
+
 ### Failure safety
 
 | Failure | Log truncated? | Archive |
