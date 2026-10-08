@@ -96,7 +96,7 @@ def rotation_lock(log_path, timeout: float = None):
         if waited is None:
             raise RotatorError(errors.ROTATION_IN_PROGRESS,
                                f"Another rotation of {log_path} is already running",
-                               lock_file=str(lock_path))
+                               lock_file=str(lock_path), locked_by_pid=_read_holder(fd))
         _write_holder(fd)
         yield {"lock_file": str(lock_path), "waited_ms": waited}
     finally:
