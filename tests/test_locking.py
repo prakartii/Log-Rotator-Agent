@@ -86,6 +86,16 @@ class RotationLockTest(unittest.TestCase):
             self.assertTrue(self.lock_file.exists())
             self.assertEqual(os.stat(self.lock_file).st_mode & 0o777, 0o600)
 
+    def test_second_rotation_is_refused_while_first_holds_lock(self):
+        from log_rotator import errors
+        from log_rotator.errors import RotatorError
+        with locking.rotation_lock(self.log):
+            with self.assertRaises(RotatorError) as ctx:
+                with locking.rotation_lock(self.log, timeout=0):
+                    self.fail("second rotator must not get the lock")
+        self.assertEqual(ctx.exception.code, errors.ROTATION_IN_PROGRESS)
+        self.assertEqual(ctx.exception.details["lock_file"], str(self.lock_file))
+
 
 if __name__ == "__main__":
     unittest.main()
