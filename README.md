@@ -33,6 +33,7 @@ log_rotator/
         compressor.py    # compress_log(), archive_name(): atomic gzip archives
         verifier.py      # verify_archive(), verify_copy(), verify_rotation(), watch_log_growth()
         truncator.py     # truncate_log(): ftruncate() on the open descriptor
+        locking.py       # rotation_lock(), writer_lock(): flock-based locking
     rotate.py            # rotate_log(): the full safe-rotation pipeline
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
