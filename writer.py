@@ -25,6 +25,7 @@ OS concepts shown here:
 """
 
 import argparse
+import fcntl
 import os
 import random
 import signal
@@ -67,6 +68,24 @@ def open_log(path: str, append: bool) -> int:
         flags |= os.O_APPEND
     # 0o644 = rw-r--r--, the usual permission for log files.
     return os.open(path, flags, 0o644)
+
+
+def write_line(fd: int, data: bytes, cooperative: bool = False) -> None:
+    """Append one line. A cooperative writer holds a SHARED flock during the write().
+
+    Shared locks never block each other, so many writers still run in
+    parallel. Only the rotator's EXCLUSIVE lock (held for a few ms around
+    ftruncate) makes this wait - so no line can slip in between the rotator's
+    final catch-up and the truncation.
+    """
+    if cooperative:
+        fcntl.flock(fd, fcntl.LOCK_SH)
+        try:
+            os.write(fd, data)
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    else:
+        os.write(fd, data)
 
 
 def prefill(fd: int, megabytes: float, pid: int) -> int:
