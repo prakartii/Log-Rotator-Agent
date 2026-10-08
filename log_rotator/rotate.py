@@ -14,6 +14,9 @@ Rules that make it safe:
   and the result says "log_unchanged": true.
 * Truncation uses ftruncate() on the descriptor; the log is never deleted.
 * Temporary files (the snapshot, a failed archive) are always cleaned up.
+* Only one rotation per log runs at a time (flock on a lock file), and
+  writers that cooperate via flock are paused only for the final catch-up
+  and ftruncate(), so none of their lines can be lost.
 
 rotate_log() never raises for expected problems; it always returns a dict,
 which is what the master agent receives.
