@@ -173,5 +173,27 @@ class RotationLockAcrossProcessesTest(unittest.TestCase):
             pass
 
 
+class WriterLockTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.log = Path(self.tmp.name) / "apache_error.log"
+        self.log.write_bytes(b"line\n")
+        self.fds = []
+
+    def tearDown(self):
+        for fd in self.fds:
+            os.close(fd)
+        self.tmp.cleanup()
+
+    def open(self, flags=os.O_RDWR):
+        fd = os.open(self.log, flags)
+        self.fds.append(fd)
+        return fd
+
+    def test_acquired_when_no_writer_holds_a_lock(self):
+        with locking.writer_lock(self.open(), timeout=0) as info:
+            self.assertTrue(info["acquired"])
+
+
 if __name__ == "__main__":
     unittest.main()
