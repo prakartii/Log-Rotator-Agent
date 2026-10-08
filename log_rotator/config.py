@@ -63,3 +63,9 @@ MAX_CATCHUP_ROUNDS = 5
 # the log). How long a second rotation waits for the first before giving up
 # with ROTATION_IN_PROGRESS; 0 = fail immediately.
 ROTATION_LOCK_TIMEOUT = 0.0
+
+# Cooperative writers hold a shared flock on the log while they write. Just
+# before truncating, the rotator takes an exclusive flock so no cooperative
+# write can slip in between the last catch-up and ftruncate(). If a writer
+# keeps the shared lock longer than this, rotation goes ahead without it.
+WRITER_LOCK_TIMEOUT = 2.0
