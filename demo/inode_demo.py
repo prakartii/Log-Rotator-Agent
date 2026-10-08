@@ -91,9 +91,7 @@ def main():
                                "--prefill-mb", str(args.prefill_mb), "--rate", str(args.rate), "--quiet"],
                               stdout=subprocess.DEVNULL)
     try:
-        target = args.prefill_mb * 1024 * 1024
-        while not log.exists() or os.stat(log).st_size < target:
-            time.sleep(0.05)
+        wait_for_size(log, args.prefill_mb * 1024 * 1024, writer)
         time.sleep(0.5)
 
         print("\n[2] Before rotation")
