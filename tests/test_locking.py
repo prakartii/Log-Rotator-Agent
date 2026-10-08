@@ -41,6 +41,10 @@ class AcquireTest(unittest.TestCase):
         self.assertIsNotNone(waited)
         self.assertLess(waited, 50)
 
+    def test_busy_exclusive_lock_returns_none_without_timeout(self):
+        fcntl.flock(self.open(), fcntl.LOCK_EX)
+        self.assertIsNone(locking.acquire(self.open(), fcntl.LOCK_EX, timeout=0))
+
 
 if __name__ == "__main__":
     unittest.main()
