@@ -96,6 +96,12 @@ class RotationLockTest(unittest.TestCase):
         self.assertEqual(ctx.exception.code, errors.ROTATION_IN_PROGRESS)
         self.assertEqual(ctx.exception.details["lock_file"], str(self.lock_file))
 
+    def test_lock_is_released_after_the_block(self):
+        with locking.rotation_lock(self.log):
+            pass
+        with locking.rotation_lock(self.log, timeout=0):
+            pass
+
 
 if __name__ == "__main__":
     unittest.main()
