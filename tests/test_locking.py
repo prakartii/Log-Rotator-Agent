@@ -45,6 +45,13 @@ class AcquireTest(unittest.TestCase):
         fcntl.flock(self.open(), fcntl.LOCK_EX)
         self.assertIsNone(locking.acquire(self.open(), fcntl.LOCK_EX, timeout=0))
 
+    def test_waits_until_timeout_before_giving_up(self):
+        import time
+        fcntl.flock(self.open(), fcntl.LOCK_EX)
+        start = time.monotonic()
+        self.assertIsNone(locking.acquire(self.open(), fcntl.LOCK_EX, timeout=0.2))
+        self.assertGreaterEqual(time.monotonic() - start, 0.2)
+
 
 if __name__ == "__main__":
     unittest.main()
