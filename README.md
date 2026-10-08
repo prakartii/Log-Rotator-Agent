@@ -125,10 +125,12 @@ rotate_log("apache_error", lock_timeout=10)    # wait up to 10 s if another rota
 Pipeline (every step is timed and listed in the result's `steps`):
 
 ```
-identify ─► open(O_RDWR) ─► snapshot ─► compress ─► verify ─► catch up ─► ftruncate(fd, 0)
-                │                                              │
-     same descriptor for every step                 new lines the writer appended
-     (same inode, even if renamed)                  during rotation -> archive
+identify ─► lock ─► open(O_RDWR) ─► snapshot ─► compress ─► verify ─► catch up
+                         │                                              │
+          same descriptor for every step                 new lines the writer appended
+          (same inode, even if renamed)                  during rotation -> archive
+
+    ─► lock writers ─► final catch up ─► ftruncate(fd, 0) ─► unlock writers ─► verify rotation
 ```
 
 ### Why truncate instead of delete?
