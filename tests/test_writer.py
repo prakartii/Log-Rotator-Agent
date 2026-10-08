@@ -116,6 +116,24 @@ class WriterTest(unittest.TestCase):
         self.assertEqual(proc.wait(timeout=10), 0)
         self.assertEqual(len(Path(self.log).read_text().splitlines()), 25)
 
+    def test_cooperative_writer_pauses_while_rotator_holds_lock(self):
+        import fcntl
+        proc = self.start_writer("--rate", "200", "--quiet", "--cooperative")
+        self.assertTrue(wait_until(lambda: os.path.exists(self.log) and self.size() > 1000))
+
+        rotator = os.open(self.log, os.O_RDWR)
+        try:
+            fcntl.flock(rotator, fcntl.LOCK_EX)
+            time.sleep(0.05)  # let a write that was already in progress finish
+            paused_at = self.size()
+            time.sleep(0.3)
+            self.assertEqual(self.size(), paused_at, "writer must wait for the exclusive lock")
+            self.assertIsNone(proc.poll())
+            fcntl.flock(rotator, fcntl.LOCK_UN)
+            self.assertTrue(wait_until(lambda: self.size() > paused_at), "writer did not resume")
+        finally:
+            os.close(rotator)
+
     def test_stops_cleanly_on_sigterm(self):
         proc = self.start_writer("--rate", "50")
         self.assertTrue(wait_until(lambda: os.path.exists(self.log) and self.size() > 0))
