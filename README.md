@@ -119,6 +119,7 @@ rotate_log("apache_error", truncate=False)     # archive only
 rotate_log("apache_error", compress=False)     # plain (uncompressed) archive
 rotate_log("apache_error", label="2026-09")    # apache_error.log.2026-09.<time>.gz
 rotate_log("apache_error", dry_run=True)       # report what would happen, change nothing
+rotate_log("apache_error", lock_timeout=10)    # wait up to 10 s if another rotation is running
 ```
 
 Pipeline (every step is timed and listed in the result's `steps`):
