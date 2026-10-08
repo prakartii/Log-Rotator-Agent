@@ -194,6 +194,11 @@ class WriterLockTest(unittest.TestCase):
         with locking.writer_lock(self.open(), timeout=0) as info:
             self.assertTrue(info["acquired"])
 
+    def test_cooperative_writer_is_held_back_while_locked(self):
+        writer = self.open(os.O_WRONLY | os.O_APPEND)
+        with locking.writer_lock(self.open(), timeout=0):
+            self.assertIsNone(locking.acquire(writer, fcntl.LOCK_SH, timeout=0))
+
 
 if __name__ == "__main__":
     unittest.main()
