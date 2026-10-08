@@ -237,6 +237,20 @@ class WriterLockRotationTest(RotateTestCase):
         self.assertTrue(result["writer_lock"]["acquired"])
         self.assertEqual(result["warnings"], [])
 
+    def test_stuck_writer_still_rotates_with_a_warning(self):
+        import fcntl
+        stuck = os.open(self.log, os.O_WRONLY | os.O_APPEND)
+        try:
+            fcntl.flock(stuck, fcntl.LOCK_SH)  # a writer that never releases its lock
+            result = self.rotate(writer_lock_timeout=0.1)
+        finally:
+            os.close(stuck)
+        self.assertEqual(result["status"], "success", result)
+        self.assertTrue(result["truncated"])
+        self.assertFalse(result["writer_lock"]["acquired"])
+        self.assertIn("writer lock", result["warnings"][-1])
+        self.assertNotIn("final_catch_up", [s["step"] for s in result["steps"]])
+
 
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
