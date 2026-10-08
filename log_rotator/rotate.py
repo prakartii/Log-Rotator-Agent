@@ -148,9 +148,15 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
                 archived += caught_up
                 s.update(bytes=caught_up, rounds=rounds)
 
-            with steps.step("truncate") as s:
-                trunc = truncator.truncate_log(fd, 0)
-                s["bytes_removed"] = trunc["bytes_removed"]
+            # Exclusive flock on the log: cooperative writers wait until ftruncate() is done.
+            writer_guard = ExitStack()
+            locks.callback(writer_guard.close)  # also released if a step below fails
+            with steps.step("lock_writers") as s:
+                s.update(writer_guard.enter_context(locking.writer_lock(fd)))
+            with writer_guard:
+                with steps.step("truncate") as s:
+                    trunc = truncator.truncate_log(fd, 0)
+                    s["bytes_removed"] = trunc["bytes_removed"]
             truncated = True
             info["size_after_truncate"] = trunc["size_after"]  # always 0; size_after may already be > 0
             # Bytes written between the last catch-up and ftruncate() could not be saved.
