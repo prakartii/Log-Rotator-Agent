@@ -102,6 +102,13 @@ class RotationLockTest(unittest.TestCase):
         with locking.rotation_lock(self.log, timeout=0):
             pass
 
+    def test_lock_is_released_when_the_block_raises(self):
+        with self.assertRaises(ZeroDivisionError):
+            with locking.rotation_lock(self.log):
+                1 / 0
+        with locking.rotation_lock(self.log, timeout=0):
+            pass
+
 
 if __name__ == "__main__":
     unittest.main()
