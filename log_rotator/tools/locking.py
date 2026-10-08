@@ -62,6 +62,20 @@ def acquire(fd: int, operation: int, timeout: float, poll: float = 0.02):
             time.sleep(poll)
 
 
+def _write_holder(fd: int) -> None:
+    """Write our pid into the lock file, so a refused rotator can say who holds it."""
+    os.ftruncate(fd, 0)
+    os.pwrite(fd, f"{os.getpid()}\n".encode(), 0)
+
+
+def _read_holder(fd: int):
+    """The pid stored by the current holder, or None if it is missing or unreadable."""
+    try:
+        return int(os.pread(fd, 32, 0).decode().strip())
+    except (OSError, ValueError):
+        return None
+
+
 @contextmanager
 def rotation_lock(log_path, timeout: float = None):
     """Hold the exclusive rotation lock of `log_path` for the duration of a `with` block.
