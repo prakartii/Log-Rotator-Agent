@@ -136,6 +136,8 @@ def parse_args(argv=None):
                         help="write this many MiB of history lines before starting")
     parser.add_argument("--no-append", action="store_true",
                         help="open WITHOUT O_APPEND to demonstrate the sparse-file problem")
+    parser.add_argument("--cooperative", action="store_true",
+                        help="hold a shared flock during each write so rotation never loses a line")
     parser.add_argument("--status-interval", type=float, default=1.0,
                         help="seconds between status lines (default: 1)")
     parser.add_argument("--quiet", action="store_true", help="do not print status lines")
