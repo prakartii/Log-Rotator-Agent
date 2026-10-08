@@ -56,7 +56,8 @@ class _StepLog:
 
 def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run=False,
                label=None, log_dir=None, allowed_roots=None, now: datetime = None,
-               watch_writer: float = 0.0, lock_timeout: float = None) -> dict:
+               watch_writer: float = 0.0, lock_timeout: float = None,
+               writer_lock_timeout: float = None) -> dict:
     """Archive the active log and empty it in place.
 
     log          - name, alias, description or path of the log (default: apache_error.log)
@@ -68,6 +69,8 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
     watch_writer - seconds to watch the log grow again after rotation (0 = don't wait)
     lock_timeout - seconds to wait if another rotation of this log is running
                    (default: config.ROTATION_LOCK_TIMEOUT)
+    writer_lock_timeout - seconds to wait for cooperative writers to pause before
+                   truncating (default: config.WRITER_LOCK_TIMEOUT)
     """
     steps = _StepLog()
     info = {"action": "rotate", "dry_run": dry_run}
@@ -152,7 +155,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             writer_guard = ExitStack()
             locks.callback(writer_guard.close)  # also released if a step below fails
             with steps.step("lock_writers") as s:
-                writer_lock = writer_guard.enter_context(locking.writer_lock(fd))
+                writer_lock = writer_guard.enter_context(locking.writer_lock(fd, timeout=writer_lock_timeout))
                 s.update(writer_lock)
             info["writer_lock"] = writer_lock
             if not writer_lock["acquired"]:
