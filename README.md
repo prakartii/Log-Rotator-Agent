@@ -365,14 +365,14 @@ python3 -m unittest discover -v
 
 ## Development phases
 
-1. Project structure and simulated log writer
-2. Log discovery, metadata and path validation
-3. Snapshot and compression
-4. Archive verification
-5. Safe `ftruncate`-based rotation
-6. Inode preservation and rotation verification
-7. File locking for concurrent rotation
-8. Agent tool interface and CLI
+1. Project structure and simulated log writer ✅
+2. Log discovery, metadata and path validation ✅
+3. Snapshot and compression ✅
+4. Archive verification ✅
+5. Safe `ftruncate`-based rotation ✅
+6. Inode preservation and rotation verification ✅
+7. File locking for concurrent rotation ✅
+8. Agent tool interface and CLI (next)
 9. Natural-language command handling
 10. Concurrency, writer and permission tests
 11. Documentation and demo guide
