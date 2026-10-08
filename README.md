@@ -220,6 +220,7 @@ finishes but adds a warning and reports `"writer_lock": {"acquired": false}`.
 | Failure | Log truncated? | Archive |
 |---|---|---|
 | log missing / outside `logs/` / symlink / no permission | no | none created |
+| another rotation of the same log is running | no | none created |
 | snapshot fails | no | none (snapshot removed) |
 | compression fails (e.g. disk full) | no | none (temp file removed) |
 | verification fails (corrupt / wrong content) | no | **removed** (not trustworthy) |
