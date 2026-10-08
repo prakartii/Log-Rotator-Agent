@@ -111,6 +111,11 @@ class WriterTest(unittest.TestCase):
         self.assertIn("nlink=0", output)
         self.assertIn("DELETED", output)
 
+    def test_cooperative_writer_writes_all_lines(self):
+        proc = self.start_writer("--count", "25", "--rate", "0", "--quiet", "--cooperative")
+        self.assertEqual(proc.wait(timeout=10), 0)
+        self.assertEqual(len(Path(self.log).read_text().splitlines()), 25)
+
     def test_stops_cleanly_on_sigterm(self):
         proc = self.start_writer("--rate", "50")
         self.assertTrue(wait_until(lambda: os.path.exists(self.log) and self.size() > 0))
