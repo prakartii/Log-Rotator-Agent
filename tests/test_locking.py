@@ -70,5 +70,22 @@ class AcquireTest(unittest.TestCase):
         self.assertIsNone(locking.acquire(self.open(), fcntl.LOCK_EX, timeout=0))
 
 
+class RotationLockTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.log = Path(self.tmp.name) / "apache_error.log"
+        self.log.write_bytes(b"line\n")
+        self.lock_file = locking.lock_path_for(self.log)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_creates_private_lock_file(self):
+        with locking.rotation_lock(self.log) as info:
+            self.assertEqual(info["lock_file"], str(self.lock_file))
+            self.assertTrue(self.lock_file.exists())
+            self.assertEqual(os.stat(self.lock_file).st_mode & 0o777, 0o600)
+
+
 if __name__ == "__main__":
     unittest.main()
