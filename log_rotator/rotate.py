@@ -152,9 +152,11 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             writer_guard = ExitStack()
             locks.callback(writer_guard.close)  # also released if a step below fails
             with steps.step("lock_writers") as s:
-                s.update(writer_guard.enter_context(locking.writer_lock(fd)))
+                writer_lock = writer_guard.enter_context(locking.writer_lock(fd))
+                s.update(writer_lock)
+            info["writer_lock"] = writer_lock
             with writer_guard:
-                if steps.items[-1]["acquired"]:
+                if writer_lock["acquired"]:
                     # Cooperative writers are paused now: whatever is in the log is
                     # complete and nothing new can arrive before ftruncate().
                     with steps.step("final_catch_up") as s:
