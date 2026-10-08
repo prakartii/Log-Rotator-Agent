@@ -197,6 +197,15 @@ class ConcurrentRotationTest(RotateTestCase):
         self.assertLogUnchanged(result)
         self.assertEqual(self.archive_files(), [])
 
+    def test_refusal_names_lock_holder_and_failing_step(self):
+        from log_rotator.tools import locking
+        with locking.rotation_lock(self.log):
+            result = self.rotate()
+        self.assertEqual(result["locked_by_pid"], os.getpid())
+        self.assertEqual(result["lock_file"], str(locking.lock_path_for(self.log)))
+        self.assertEqual([(s["step"], s["ok"]) for s in result["steps"]],
+                         [("identify", True), ("lock", False)])
+
 
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
