@@ -182,6 +182,27 @@ to the log (`logs/.apache_error.log.rotate.lock`):
   so a crashed (even `kill -9`ed) rotator never leaves a stale lock behind.
 - A dry run changes nothing, so it does not need the lock.
 
+### Cooperative writers (writer lock): zero lost lines
+
+Catch-up makes the gap before `ftruncate()` tiny, but not zero. Writers that
+cooperate close it completely (`python3 writer.py --cooperative`):
+
+```
+writer (every line)                      rotator (once per rotation)
+flock(fd, LOCK_SH)                       ... snapshot, compress, verify, catch up ...
+write(fd, line)                          flock(fd, LOCK_EX)    waits for writes in progress,
+flock(fd, LOCK_UN)                                             then holds new ones back
+                                         final catch up        nothing new can arrive now
+                                         ftruncate(fd, 0)
+                                         flock(fd, LOCK_UN)    writers continue at offset 0
+```
+
+Shared locks do not block each other, so several writers still append in parallel;
+they only wait for the few milliseconds the rotator holds its exclusive lock. With
+a cooperative writer `bytes_lost` is always 0. The test suite checks this by rotating
+three times while `writer.py --cooperative` writes 2000 lines/s: every line number
+appears exactly once across the archives and the live log.
+
 ### Failure safety
 
 | Failure | Log truncated? | Archive |
