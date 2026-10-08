@@ -156,6 +156,8 @@ def main(argv=None) -> int:
     pid = os.getpid()
     fd = open_log(path, append=not args.no_append)
     mode = "O_WRONLY|O_CREAT" + ("" if args.no_append else "|O_APPEND")
+    if args.cooperative:
+        mode += " +flock(LOCK_SH) per write"
     print(f"[writer] pid={pid} fd={fd} flags={mode} path={path}", flush=True)
 
     if args.prefill_mb > 0:
