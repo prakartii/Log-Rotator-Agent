@@ -154,6 +154,14 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             with steps.step("lock_writers") as s:
                 s.update(writer_guard.enter_context(locking.writer_lock(fd)))
             with writer_guard:
+                if steps.items[-1]["acquired"]:
+                    # Cooperative writers are paused now: whatever is in the log is
+                    # complete and nothing new can arrive before ftruncate().
+                    with steps.step("final_catch_up") as s:
+                        extra, rounds = _catch_up(fd, archive_path, archived, append)
+                        archived += extra
+                        caught_up += extra
+                        s.update(bytes=extra, rounds=rounds)
                 with steps.step("truncate") as s:
                     trunc = truncator.truncate_log(fd, 0)
                     s["bytes_removed"] = trunc["bytes_removed"]

@@ -1,5 +1,6 @@
 """Tests for the rotation pipeline (log_rotator/rotate.py)."""
 
+import contextlib
 import gzip
 import hashlib
 import os
@@ -81,7 +82,7 @@ class SuccessfulRotationTest(RotateTestCase):
     def test_steps_run_in_safe_order(self):
         result = self.rotate()
         self.assertEqual([s["step"] for s in result["steps"]],
-                         ["identify", "lock", "open", "snapshot", "compress", "verify_archive", "catch_up", "lock_writers", "truncate", "verify_rotation"])
+                         ["identify", "lock", "open", "snapshot", "compress", "verify_archive", "catch_up", "lock_writers", "final_catch_up", "truncate", "verify_rotation"])
         self.assertTrue(all(s["ok"] for s in result["steps"]))
         self.assertTrue(all(s["ms"] >= 0 for s in result["steps"]))
 
@@ -242,7 +243,7 @@ class UncompressedRotationTest(RotateTestCase):
     def test_plain_steps(self):
         result = self.rotate(compress=False)
         self.assertEqual([s["step"] for s in result["steps"]],
-                         ["identify", "lock", "open", "snapshot", "publish", "verify_archive", "catch_up", "lock_writers", "truncate", "verify_rotation"])
+                         ["identify", "lock", "open", "snapshot", "publish", "verify_archive", "catch_up", "lock_writers", "final_catch_up", "truncate", "verify_rotation"])
 
     def test_plain_catch_up(self):
         real_verify = rotate.verifier.verify_copy
@@ -337,9 +338,14 @@ class CatchUpTest(RotateTestCase):
             self.append_to_log(b"more\n")  # the writer never pauses
             return real_append(path, data)
 
+        @contextlib.contextmanager
+        def writer_lock_unavailable(fd, timeout=None):
+            yield {"acquired": False, "waited_ms": None}  # a writer that ignores flock
+
         with mock.patch.object(rotate.config, "MAX_CATCHUP_ROUNDS", 2), \
                 mock.patch.object(rotate.verifier, "verify_archive", side_effect=first_write), \
-                mock.patch.object(rotate.compressor, "append_gzip_member", side_effect=endless_writer):
+                mock.patch.object(rotate.compressor, "append_gzip_member", side_effect=endless_writer), \
+                mock.patch.object(rotate.locking, "writer_lock", writer_lock_unavailable):
             result = self.rotate()
 
         self.assertEqual(result["status"], "success")
