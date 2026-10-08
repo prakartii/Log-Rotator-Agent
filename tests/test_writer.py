@@ -134,6 +134,20 @@ class WriterTest(unittest.TestCase):
         finally:
             os.close(rotator)
 
+    def test_normal_writer_ignores_the_lock(self):
+        """flock is advisory: a writer that never calls flock() is not stopped."""
+        import fcntl
+        proc = self.start_writer("--rate", "200", "--quiet")
+        self.assertTrue(wait_until(lambda: os.path.exists(self.log) and self.size() > 1000))
+        rotator = os.open(self.log, os.O_RDWR)
+        try:
+            fcntl.flock(rotator, fcntl.LOCK_EX)
+            locked_at = self.size()
+            self.assertTrue(wait_until(lambda: self.size() > locked_at, timeout=2))
+            self.assertIsNone(proc.poll())
+        finally:
+            os.close(rotator)
+
     def test_stops_cleanly_on_sigterm(self):
         proc = self.start_writer("--rate", "50")
         self.assertTrue(wait_until(lambda: os.path.exists(self.log) and self.size() > 0))
