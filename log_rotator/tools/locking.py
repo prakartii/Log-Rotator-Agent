@@ -31,7 +31,11 @@ a crashed rotator can never leave a log locked forever.
 import fcntl
 import os
 import time
+from contextlib import contextmanager
 from pathlib import Path
+
+from .. import config, errors
+from ..errors import RotatorError
 
 
 def lock_path_for(log_path) -> Path:
@@ -56,3 +60,29 @@ def acquire(fd: int, operation: int, timeout: float, poll: float = 0.02):
             if time.monotonic() - start >= timeout:
                 return None
             time.sleep(poll)
+
+
+@contextmanager
+def rotation_lock(log_path, timeout: float = None):
+    """Hold the exclusive rotation lock of `log_path` for the duration of a `with` block.
+
+    Raises ROTATION_IN_PROGRESS if another rotator keeps it for `timeout`
+    seconds (default: config.ROTATION_LOCK_TIMEOUT). Yields a dict with the
+    lock file and how long we waited.
+    """
+    lock_path = lock_path_for(log_path)
+    timeout = config.ROTATION_LOCK_TIMEOUT if timeout is None else timeout
+    try:
+        # O_NOFOLLOW: a symlink planted at the lock path must not redirect us.
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError as err:
+        raise errors.from_os_error(err, lock_path) from None
+    try:
+        waited = acquire(fd, fcntl.LOCK_EX, timeout)
+        if waited is None:
+            raise RotatorError(errors.ROTATION_IN_PROGRESS,
+                               f"Another rotation of {log_path} is already running",
+                               lock_file=str(lock_path))
+        yield {"lock_file": str(lock_path), "waited_ms": waited}
+    finally:
+        os.close(fd)  # closing the descriptor releases the flock
