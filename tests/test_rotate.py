@@ -270,6 +270,18 @@ class WriterLockRotationTest(RotateTestCase):
         with gzip.open(result["archive"], "rb") as f:
             self.assertEqual(f.read(), self.data + b"last line before the lock\n")
 
+    def test_writers_are_not_blocked_after_failed_truncation(self):
+        import fcntl
+        writer = os.open(self.log, os.O_WRONLY | os.O_APPEND)
+        try:
+            with mock.patch.object(rotate.truncator, "truncate_log",
+                                   side_effect=RotatorError(errors.TRUNCATE_FAILED, "simulated")):
+                result = self.rotate()
+            self.assertEqual(result["error_code"], errors.TRUNCATE_FAILED)
+            fcntl.flock(writer, fcntl.LOCK_SH | fcntl.LOCK_NB)  # raises if still locked
+        finally:
+            os.close(writer)
+
 
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
