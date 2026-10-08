@@ -213,6 +213,12 @@ class ConcurrentRotationTest(RotateTestCase):
         self.assertEqual(result["status"], "success")
         self.assertNotIn("lock", [s["step"] for s in result["steps"]])
 
+    def test_lock_is_free_again_after_rotation(self):
+        from log_rotator.tools import locking
+        self.assertEqual(self.rotate()["status"], "success")
+        with locking.rotation_lock(self.log, timeout=0):
+            pass
+
 
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
