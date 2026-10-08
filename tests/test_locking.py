@@ -61,6 +61,10 @@ class AcquireTest(unittest.TestCase):
         self.assertIsNotNone(waited)
         self.assertGreaterEqual(waited, 90)
 
+    def test_shared_locks_do_not_block_each_other(self):
+        fcntl.flock(self.open(), fcntl.LOCK_SH)
+        self.assertIsNotNone(locking.acquire(self.open(), fcntl.LOCK_SH, timeout=0))
+
 
 if __name__ == "__main__":
     unittest.main()
