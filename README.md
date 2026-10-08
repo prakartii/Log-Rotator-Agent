@@ -350,6 +350,7 @@ the deleted one.
 python3 writer.py                          # append to logs/apache_error.log, 20 lines/s
 python3 writer.py --prefill-mb 50          # first create a 50 MiB log to rotate
 python3 writer.py --no-append              # open WITHOUT O_APPEND (shows the sparse-file problem)
+python3 writer.py --cooperative            # shared flock per write: rotation never loses a line
 ```
 
 Each status line shows the descriptor's offset, the file size, the inode and
