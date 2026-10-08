@@ -238,6 +238,27 @@ class ConcurrentRotationTest(RotateTestCase):
         with gzip.open(winner["archive"], "rb") as f:
             self.assertEqual(f.read(), self.data)
 
+    def test_lock_timeout_waits_for_the_other_rotation(self):
+        import threading
+        import time
+        from log_rotator.tools import locking
+        held = threading.Event()
+
+        def other_rotation():
+            with locking.rotation_lock(self.log):
+                held.set()
+                time.sleep(0.2)
+
+        other = threading.Thread(target=other_rotation)
+        other.start()
+        held.wait(timeout=5)
+        result = self.rotate(lock_timeout=5)
+        other.join()
+
+        self.assertEqual(result["status"], "success", result)
+        lock_step = next(s for s in result["steps"] if s["step"] == "lock")
+        self.assertGreaterEqual(lock_step["waited_ms"], 100)
+
     def test_dry_run_does_not_need_the_lock(self):
         from log_rotator.tools import locking
         with locking.rotation_lock(self.log):
