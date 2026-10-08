@@ -219,6 +219,14 @@ class ConcurrentRotationTest(RotateTestCase):
         with locking.rotation_lock(self.log, timeout=0):
             pass
 
+    def test_lock_is_free_again_after_failed_rotation(self):
+        from log_rotator.tools import locking
+        with mock.patch.object(rotate.compressor, "compress_log",
+                               side_effect=RotatorError(errors.COMPRESSION_FAILED, "simulated")):
+            self.assertEqual(self.rotate()["status"], "error")
+        with locking.rotation_lock(self.log, timeout=0):
+            pass
+
 
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
