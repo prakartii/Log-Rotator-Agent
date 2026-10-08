@@ -19,13 +19,13 @@ which is what the master agent receives.
 
 import os
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from . import config, errors
 from .errors import RotatorError
-from .tools import compressor, snapshot, truncator, verifier
+from .tools import compressor, locking, snapshot, truncator, verifier
 from .tools.log_info import human_size, identify_log
 from .tools.processes import find_open_handles, unsafe_writers
 from .tools.safety import open_validated
@@ -56,7 +56,7 @@ class _StepLog:
 
 def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run=False,
                label=None, log_dir=None, allowed_roots=None, now: datetime = None,
-               watch_writer: float = 0.0) -> dict:
+               watch_writer: float = 0.0, lock_timeout: float = None) -> dict:
     """Archive the active log and empty it in place.
 
     log          - name, alias, description or path of the log (default: apache_error.log)
@@ -66,6 +66,8 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
     dry_run      - validate and report what would happen, change nothing
     label        - optional tag in the archive name, e.g. "2026-09"
     watch_writer - seconds to watch the log grow again after rotation (0 = don't wait)
+    lock_timeout - seconds to wait if another rotation of this log is running
+                   (default: config.ROTATION_LOCK_TIMEOUT)
     """
     steps = _StepLog()
     info = {"action": "rotate", "dry_run": dry_run}
@@ -77,11 +79,17 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
     archive_path = None
     archive_verified = False
     truncated = False
+    locks = ExitStack()  # released in `finally`, after the log descriptor is closed
     try:
         with steps.step("identify") as s:
             path = identify_log(log, log_dir=log_dir, allowed_roots=roots)["log"]
             s["log"] = path
         info["log"] = path
+
+        if not dry_run:
+            # One rotation per log at a time; a second one gets ROTATION_IN_PROGRESS.
+            with steps.step("lock") as s:
+                s.update(locks.enter_context(locking.rotation_lock(path, timeout=lock_timeout)))
 
         with steps.step("open"):
             # O_RDWR: ftruncate() later requires a descriptor opened for writing.
@@ -201,6 +209,7 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             _remove_quietly(snap_path)
         if fd is not None:
             os.close(fd)
+        locks.close()
 
 
 def _catch_up(fd: int, archive_path, archived: int, append) -> tuple:
