@@ -61,6 +61,7 @@ the results directly as JSON.
 | `truncate_log(fd)` | Empties the log in place; reports inode and size before/after | `ftruncate` on the open descriptor |
 | `verify_rotation(path, before)` | After truncation: same inode, still appendable, same mode/owner, writers still attached | `lstat`, inode compare, `O_APPEND` open + zero-byte `write`, `/proc` |
 | `watch_log_growth(path, inode)` | Samples inode + size until the writer's new lines appear | `stat` polling |
+| `rotation_lock(path)` | Lets only one rotation of a log run at a time; names the pid holding it | `flock(LOCK_EX \| LOCK_NB)` on `.<log>.rotate.lock` |
 | `rotate_log(log, ...)` | The whole pipeline below, returns one structured result | everything above |
 
 ### How an archive is written safely
