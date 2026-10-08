@@ -115,6 +115,17 @@ class RotationLockTest(unittest.TestCase):
             inode = os.stat(self.lock_file).st_ino
         self.assertEqual(os.stat(self.lock_file).st_ino, inode)
 
+    def test_symlink_at_lock_path_is_rejected(self):
+        from log_rotator import errors
+        from log_rotator.errors import RotatorError
+        target = Path(self.tmp.name) / "elsewhere"
+        target.write_bytes(b"")
+        os.symlink(target, self.lock_file)
+        with self.assertRaises(RotatorError) as ctx:
+            with locking.rotation_lock(self.log):
+                pass
+        self.assertEqual(ctx.exception.code, errors.SYMLINK_REJECTED)
+
 
 if __name__ == "__main__":
     unittest.main()
