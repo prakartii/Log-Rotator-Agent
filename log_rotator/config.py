@@ -58,3 +58,8 @@ COPY_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 # archive just before truncation ("catch-up"). Each round shrinks the gap;
 # stop after this many rounds so a very busy writer cannot keep us looping.
 MAX_CATCHUP_ROUNDS = 5
+
+# Only one rotation of a log may run at a time (flock on a lock file next to
+# the log). How long a second rotation waits for the first before giving up
+# with ROTATION_IN_PROGRESS; 0 = fail immediately.
+ROTATION_LOCK_TIMEOUT = 0.0
