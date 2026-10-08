@@ -88,7 +88,7 @@ def write_line(fd: int, data: bytes, cooperative: bool = False) -> None:
         os.write(fd, data)
 
 
-def prefill(fd: int, megabytes: float, pid: int) -> int:
+def prefill(fd: int, megabytes: float, pid: int, cooperative: bool = False) -> int:
     """Quickly write `megabytes` of log lines so there is something big to rotate."""
     target = int(megabytes * 1024 * 1024)
     written = 0
@@ -100,10 +100,10 @@ def prefill(fd: int, megabytes: float, pid: int) -> int:
         batch.append(line)
         written += len(line)
         if len(batch) >= 1000:
-            os.write(fd, b"".join(batch))
+            write_line(fd, b"".join(batch), cooperative)
             batch.clear()
     if batch:
-        os.write(fd, b"".join(batch))
+        write_line(fd, b"".join(batch), cooperative)
     return written
 
 
@@ -159,7 +159,7 @@ def main(argv=None) -> int:
     print(f"[writer] pid={pid} fd={fd} flags={mode} path={path}", flush=True)
 
     if args.prefill_mb > 0:
-        n = prefill(fd, args.prefill_mb, pid)
+        n = prefill(fd, args.prefill_mb, pid, cooperative=args.cooperative)
         print(f"[writer] prefilled {n} bytes", flush=True)
 
     delay = 1.0 / args.rate if args.rate > 0 else 0.0
