@@ -276,6 +276,29 @@ Every failure before truncation returns `"status": "error"`, an `error_code`,
 }
 ```
 
+With locking (real run, `writer.py --cooperative` at 500 lines/s on a 3 MiB log), the
+result also contains `writer_lock` and the steps look like this:
+
+```json
+{
+  "bytes_archived": 3270906, "caught_up_bytes": 4347, "bytes_lost": 0,
+  "writer_lock": {"acquired": true, "waited_ms": 0.01},
+  "steps": [
+    {"step": "identify", "ok": true, "ms": 0.34},
+    {"step": "lock", "ok": true, "ms": 0.26, "lock_file": ".../logs/.apache_error.log.rotate.lock", "waited_ms": 0.01},
+    {"step": "open", "ok": true, "ms": 0.22},
+    {"step": "snapshot", "ok": true, "ms": 12.81, "bytes": 3266559},
+    {"step": "compress", "ok": true, "ms": 31.63},
+    {"step": "verify_archive", "ok": true, "ms": 8.07},
+    {"step": "catch_up", "ok": true, "ms": 0.24, "bytes": 4347, "rounds": 1},
+    {"step": "lock_writers", "ok": true, "ms": 0.02, "acquired": true, "waited_ms": 0.01},
+    {"step": "final_catch_up", "ok": true, "ms": 0.0, "bytes": 0, "rounds": 0},
+    {"step": "truncate", "ok": true, "ms": 0.25, "bytes_removed": 3270906},
+    {"step": "verify_rotation", "ok": true, "ms": 1.51, "writers_attached": [437]}
+  ]
+}
+```
+
 `size_after_truncate` is the size returned by `ftruncate()` itself (always 0).
 `size_after`, measured at the end, can already be above 0: the writer continued
 writing the moment the log was emptied. Successful results also contain
