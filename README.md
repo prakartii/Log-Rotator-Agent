@@ -18,7 +18,7 @@ same and the writer process keeps running on its open file descriptor.
 ## Project structure
 
 ```
-agent.py                 # command-line entry point (later phase)
+agent.py                 # command-line entry point (people and master agent)
 writer.py                # simulated long-running process that appends to a log
 demo/
     inode_demo.py        # presentation demo: same inode before/after, writer keeps running
@@ -35,6 +35,7 @@ log_rotator/
         truncator.py     # truncate_log(): ftruncate() on the open descriptor
         locking.py       # rotation_lock(), writer_lock(): flock-based locking
     rotate.py            # rotate_log(): the full safe-rotation pipeline
+    interface.py         # tool_specs(), call_tool(): the master agent's tool interface
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
@@ -305,6 +306,79 @@ writing the moment the log was emptied. Successful results also contain
 `rotation_checks` (all `true`), and with `watch_writer` also `writer_continues`
 and `growth` samples.
 
+## Command line: `agent.py`
+
+```bash
+python3 agent.py list                           # active logs: name, size, inode, modified
+python3 agent.py info the apache error logs     # inode details, writers, warnings
+python3 agent.py rotate apache_error --dry-run  # what would happen, nothing changes
+python3 agent.py rotate apache_error            # archive + gzip + ftruncate in place
+python3 agent.py rotate apache_error --watch 1 --label 2026-09
+python3 agent.py rotate apache_error --no-truncate --no-compress   # plain copy only
+python3 agent.py archives apache_error          # its archives, newest first
+```
+
+The log can be named by file name, alias or description, without quotes.
+Add `--json` to any command for the raw result. Exit code `0` = success,
+`1` = the tool returned an error (message on stderr), `2` = invalid command line.
+
+```
+$ python3 agent.py rotate the apache error logs --watch 1
+log:        /home/user/Log-Rotator-Agent/logs/apache_error.log
+inode:      2220525   size: 3.3 MiB
+open by:    1 process(es)
+  pid 1411033  fd 3    write  O_APPEND     offset 3510673  python3 writer.py --cooperative ...
+
+steps:
+  identify         ok         0.35 ms
+  lock             ok         0.23 ms
+  ...
+  truncate         ok         0.55 ms
+  verify_rotation  ok        29.45 ms
+  watch_writer     ok       100.33 ms
+
+archive:    /home/user/Log-Rotator-Agent/rotated_logs/apache_error.log.2026-10-08T180145.gz
+            3.4 MiB -> 320.3 KiB (ratio 0.0932)
+truncated:  yes, inode 2220525 (preserved)
+caught up:  10124 bytes written during rotation
+lost:       0 bytes
+writer:     still writing
+```
+
+### Tool interface for the master agent
+
+The master agent does not import our modules. It reads the tool list and calls
+one tool by name with JSON arguments, like an LLM function-calling API:
+
+```bash
+python3 agent.py tools                                            # JSON schema of every tool
+python3 agent.py call rotate_log '{"log": "apache_error", "dry_run": true}'
+echo '{"log": "apache_error"}' | python3 agent.py call get_log_info -
+```
+
+or from Python:
+
+```python
+from log_rotator.interface import call_tool, tool_specs
+call_tool("rotate_log", {"log": "the apache error logs", "watch_writer": 1})
+```
+
+| Tool | Arguments |
+|---|---|
+| `list_logs` | none |
+| `identify_log` | `log` |
+| `get_log_info` | `log` |
+| `list_archives` | `log` (optional filter) |
+| `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `watch_writer`, `lock_timeout` |
+
+`call` always prints JSON, and `call_tool()` never raises for expected problems.
+Before a tool runs, its arguments are checked against its schema. An unknown tool,
+an unknown argument or a wrong type (e.g. `"dry_run": "yes"`, a negative or infinite
+timeout) returns `INVALID_REQUEST` and nothing is touched. A `null` argument means
+"use the default". **Directories are not arguments:** where logs and archives live
+comes only from the `LOG_ROTATOR_*` environment variables, so a request cannot
+point the agent at `/etc` or `/var/log`.
+
 ## Demo: the inode stays the same
 
 ```bash
@@ -372,7 +446,7 @@ python3 -m unittest discover -v
 5. Safe `ftruncate`-based rotation ✅
 6. Inode preservation and rotation verification ✅
 7. File locking for concurrent rotation ✅
-8. Agent tool interface and CLI (next)
-9. Natural-language command handling
+8. Agent tool interface and CLI ✅
+9. Natural-language command handling (next)
 10. Concurrency, writer and permission tests
 11. Documentation and demo guide
