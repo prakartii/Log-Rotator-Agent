@@ -1,7 +1,9 @@
 """The safe log-rotation pipeline.
 
-    identify log -> open (O_RDWR, validated) -> fstat -> snapshot -> compress
-        -> verify archive -> catch up new lines -> ftruncate(fd, 0) -> structured result
+    identify log -> rotation lock -> open (O_RDWR, validated) -> fstat -> snapshot
+        -> compress -> verify archive -> catch up new lines
+        -> writer lock -> final catch-up -> ftruncate(fd, 0) -> unlock writers
+        -> verify rotation -> structured result
 
 Rules that make it safe:
 
