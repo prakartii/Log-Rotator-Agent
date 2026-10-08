@@ -65,6 +65,10 @@ class AcquireTest(unittest.TestCase):
         fcntl.flock(self.open(), fcntl.LOCK_SH)
         self.assertIsNotNone(locking.acquire(self.open(), fcntl.LOCK_SH, timeout=0))
 
+    def test_shared_lock_blocks_exclusive(self):
+        fcntl.flock(self.open(), fcntl.LOCK_SH)
+        self.assertIsNone(locking.acquire(self.open(), fcntl.LOCK_EX, timeout=0))
+
 
 if __name__ == "__main__":
     unittest.main()
