@@ -207,6 +207,37 @@ class ConcurrentRotationTest(RotateTestCase):
         self.assertEqual([(s["step"], s["ok"]) for s in result["steps"]],
                          [("identify", True), ("lock", False)])
 
+    def test_two_simultaneous_rotations_only_one_runs(self):
+        import threading
+        import time
+        real_compress = rotate.compressor.compress_log
+
+        def slow_compress(*args, **kwargs):
+            time.sleep(0.3)  # keep the first rotation busy while the second starts
+            return real_compress(*args, **kwargs)
+
+        results = []
+        start = threading.Barrier(2)
+
+        def run():
+            start.wait()
+            results.append(self.rotate())
+
+        with mock.patch.object(rotate.compressor, "compress_log", side_effect=slow_compress):
+            threads = [threading.Thread(target=run) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=10)
+
+        self.assertEqual(sorted(r["status"] for r in results), ["error", "success"])
+        refused = next(r for r in results if r["status"] == "error")
+        self.assertEqual(refused["error_code"], errors.ROTATION_IN_PROGRESS)
+        self.assertEqual(len(self.archive_files()), 1)
+        winner = next(r for r in results if r["status"] == "success")
+        with gzip.open(winner["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data)
+
     def test_dry_run_does_not_need_the_lock(self):
         from log_rotator.tools import locking
         with locking.rotation_lock(self.log):
