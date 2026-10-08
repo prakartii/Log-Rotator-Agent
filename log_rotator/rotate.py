@@ -181,7 +181,8 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             truncated = True
             info["size_after_truncate"] = trunc["size_after"]  # always 0; size_after may already be > 0
             # Bytes written between the last catch-up and ftruncate() could not be saved.
-            # Report them honestly (normally 0; the lock-cooperating writer makes it always 0).
+            # Report them honestly: normally 0, and always 0 for writers that use flock,
+            # because they were paused by the writer lock. Only flock-ignoring writers can lose bytes.
             bytes_lost = max(trunc["size_before"] - archived, 0)
 
             # Never report success without checking the result: same inode, still
