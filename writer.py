@@ -170,7 +170,7 @@ def main(argv=None) -> int:
             seq += 1
             # One write() system call per line: no user-space buffering, so the
             # rotator always sees complete lines on disk.
-            os.write(fd, make_line(seq, pid))
+            write_line(fd, make_line(seq, pid), cooperative=args.cooperative)
 
             now = time.monotonic()
             if not args.quiet and now - last_status >= args.status_interval:
