@@ -109,6 +109,12 @@ class RotationLockTest(unittest.TestCase):
         with locking.rotation_lock(self.log, timeout=0):
             pass
 
+    def test_lock_file_is_kept_after_release(self):
+        """Deleting it would let a later rotator lock a different inode."""
+        with locking.rotation_lock(self.log):
+            inode = os.stat(self.lock_file).st_ino
+        self.assertEqual(os.stat(self.lock_file).st_ino, inode)
+
 
 if __name__ == "__main__":
     unittest.main()
