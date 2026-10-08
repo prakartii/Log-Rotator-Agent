@@ -206,6 +206,12 @@ class WriterLockTest(unittest.TestCase):
             pass
         self.assertIsNotNone(locking.acquire(writer, fcntl.LOCK_SH, timeout=0))
 
+    def test_stuck_writer_does_not_fail_rotation(self):
+        fcntl.flock(self.open(), fcntl.LOCK_SH)  # a writer that never lets go
+        with locking.writer_lock(self.open(), timeout=0.1) as info:
+            self.assertFalse(info["acquired"])
+            self.assertIsNone(info["waited_ms"])
+
 
 if __name__ == "__main__":
     unittest.main()
