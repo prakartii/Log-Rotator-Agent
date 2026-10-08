@@ -186,6 +186,18 @@ class RotationVerificationTest(RotateTestCase):
         self.assertNotIn("verify_rotation", [s["step"] for s in result["steps"]])
 
 
+class ConcurrentRotationTest(RotateTestCase):
+    """Only one rotation of a log may run at a time (flock rotation lock)."""
+
+    def test_rotation_is_refused_while_another_is_running(self):
+        from log_rotator.tools import locking
+        with locking.rotation_lock(self.log):
+            result = self.rotate()
+        self.assertEqual(result["error_code"], errors.ROTATION_IN_PROGRESS)
+        self.assertLogUnchanged(result)
+        self.assertEqual(self.archive_files(), [])
+
+
 class UncompressedRotationTest(RotateTestCase):
     def test_plain_archive_holds_exact_bytes(self):
         result = self.rotate(compress=False)
