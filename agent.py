@@ -142,6 +142,17 @@ def _format_who(result):
     return "\n".join(lines)
 
 
+@_formats("list_archives")
+def _format_archives(result):
+    if not result["archives"]:
+        return f"No archives in {result['archive_dir']}"
+    lines = [f"{result['count']} archive(s) in {result['archive_dir']}, newest first:"]
+    for archive in result["archives"]:
+        label = f"  [{archive['label']}]" if archive["label"] else ""
+        lines.append(f"  {archive['name']:<52} {archive['size_human']:>10}{label}")
+    return "\n".join(lines)
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
