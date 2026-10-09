@@ -153,6 +153,31 @@ def _format_archives(result):
     return "\n".join(lines)
 
 
+@_formats("rotate")
+def _format_rotate(result):
+    if result["dry_run"]:
+        lines = ["DRY RUN: nothing was changed.",
+                 f"  log:        {result['log']} ({result['original_size_human']}, inode {result['inode_before']})",
+                 f"  archive to: {result['would_archive_to']}",
+                 f"  truncate:   {'yes, in place with ftruncate()' if result['would_truncate'] else 'no'}"]
+    else:
+        lines = [f"Rotated {result['log']}",
+                 f"  archive:  {result['archive']} ({result['archive_size']} bytes, "
+                 f"ratio {result['compression_ratio']})",
+                 f"  archived: {result['bytes_archived']} bytes "
+                 f"(caught up {result['caught_up_bytes']}, lost {result['bytes_lost']})"]
+        if result["truncated"]:
+            lines.append(f"  inode:    {result['inode_before']} -> {result['inode_after']} "
+                         f"({'preserved' if result['inode_preserved'] else 'CHANGED'})")
+        else:
+            lines.append("  the log was not truncated (archive only)")
+        if "writer_continues" in result:
+            lines.append(f"  writer continues: {'yes' if result['writer_continues'] else 'not seen'}")
+    lines += _format_handles(result.get("open_by", []))
+    lines += [f"  WARNING: {w}" for w in result.get("warnings", [])]
+    return "\n".join(lines)
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
