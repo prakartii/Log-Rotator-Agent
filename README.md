@@ -319,6 +319,11 @@ python3 agent.py rotate apache_error                # archive + gzip + verify + 
 python3 agent.py archives apache_error              # archives of that log, newest first
 ```
 
+`rotate` options: `--dry-run`, `--no-compress`, `--no-truncate` (archive only),
+`--label 2026-09`, `--lock-timeout SECONDS`, `--watch SECONDS` (watch the writer
+continue). Global options: `--json` (print the raw tool result), `--log-dir` and
+`--archive-dir`.
+
 ## Demo: the inode stays the same
 
 ```bash
