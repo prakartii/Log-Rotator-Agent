@@ -374,6 +374,19 @@ Directories are not tool arguments, so a request can never point the agent at a
 different folder. Like every tool, `call_tool()` never raises for expected errors;
 it returns `{"status": "error", "error_code": ...}`.
 
+## Plain-English requests
+
+```bash
+python3 agent.py ask "rotate the apache error logs"
+python3 agent.py ask "compress last month's nginx access log but keep the log"
+python3 agent.py ask "what would happen if you rotated app.log?"
+python3 agent.py ask "who is writing to the apache error log?"
+python3 agent.py ask "show the archives of the nginx access log"
+```
+
+From Python: `handle_request("rotate the apache error logs")`, or only
+`parse_request(text)` to see the tool call without running it.
+
 ## Demo: the inode stays the same
 
 ```bash
