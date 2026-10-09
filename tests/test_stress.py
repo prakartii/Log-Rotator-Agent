@@ -9,6 +9,7 @@ exactly once, either in an archive or in the live log.
 
 import collections
 import gzip
+import json
 import os
 import re
 import subprocess
@@ -129,6 +130,31 @@ class MultipleWritersTest(StressTestCase):
             self.assertIsNone(writer.poll(), "writer must keep running")
         for handle in result["open_by"]:
             self.assertEqual(os.stat(f"/proc/{handle['pid']}/fd/{handle['fd']}").st_ino, inode)
+
+
+class ConcurrentRotatorsTest(StressTestCase):
+    def start_rotators(self, count, *options):
+        command = [sys.executable, str(AGENT), "--json", "--log-dir", str(self.logs),
+                   "--archive-dir", str(self.archives), "rotate", "apache_error", *options]
+        return [subprocess.Popen(command, stdout=subprocess.PIPE, text=True) for _ in range(count)]
+
+    def results(self, rotators):
+        out = []
+        for proc in rotators:
+            stdout, _ = proc.communicate(timeout=60)
+            out.append((proc.returncode, json.loads(stdout)))
+        return out
+
+    def test_four_waiting_rotators_all_succeed_one_after_another(self):
+        self.start_writer("--cooperative")
+        self.wait_for_size(8192)
+        results = self.results(self.start_rotators(4, "--lock-timeout", "30"))
+        for status, result in results:
+            self.assertEqual((status, result["status"]), (0, "success"), result)
+        self.assertEqual(len({r["archive"] for _, r in results}), 4, "four separate archives")
+        time.sleep(0.2)
+        self.stop_writers()
+        self.assertEveryLineOnce(self.line_counts())
 
 
 if __name__ == "__main__":
