@@ -36,6 +36,13 @@ _ARCHIVE_ONLY = re.compile(r"\b(archive only|only archive|back ?up|keep the log|
                            r"(?:don't|do not|never|without) (?:truncat\w*|empty\w*|clear\w*))\b")
 _NO_COMPRESS = re.compile(r"\b((?:don't|do not|without|no) (?:compress\w*|gzip\w*|zip\w*)|"
                           r"uncompressed|plain copy)\b")
+# "make sure the writer keeps running" -> watch the log grow again after rotation.
+_WATCH = re.compile(r"\b(?:make sure|check|verify|confirm|ensure)\b[a-z' ]*?\b(?:writer|process|app\w*|server)"
+                    r"\b[a-z' ]*?\b(?:keeps?|still|continues?|running|writing)\w*\b")
+_WATCH_SECONDS = 3.0
+# "wait if another rotation is running" -> lock_timeout.
+_WAIT = re.compile(r"\b(?:wait|queue)\b(?: (?:if|until|for)\b[a-z' ]*?(?:busy|running|finish\w*|done|rotation))?")
+_WAIT_SECONDS = 10.0
 
 _MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
            "september", "october", "november", "december"]
