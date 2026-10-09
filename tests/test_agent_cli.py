@@ -71,6 +71,12 @@ class InfoCommandTest(CliTestCase):
         self.assertIn(f"({len(self.data)} bytes)", out)
         self.assertIn("open by: no process", out)
 
+    def test_unknown_log_exits_1_and_lists_available_logs(self):
+        status, out = self.run_cli("info", "mysql")
+        self.assertEqual(status, 1)
+        self.assertIn("ERROR LOG_NOT_FOUND", out)
+        self.assertIn("Available logs: apache_error.log", out)
+
 
 if __name__ == "__main__":
     unittest.main()
