@@ -114,6 +114,27 @@ def _format_list(result):
     return "\n".join(lines)
 
 
+def _format_handles(handles):
+    if not handles:
+        return ["  open by: no process"]
+    return [f"  open by: pid {h['pid']} ({h['command']}) fd {h['fd']} {h['access']}"
+            f"{' O_APPEND' if h['append'] else ' (no O_APPEND)'} offset {h['offset']}" for h in handles]
+
+
+@_formats("get_log_info")
+def _format_info(result):
+    lines = [
+        result["log"],
+        f"  inode {result['inode']}   size {result['size_human']} ({result['size']} bytes)   "
+        f"on disk {result['disk_usage']} bytes{'   SPARSE (has holes)' if result['sparse'] else ''}",
+        f"  {result['mode']} {result['owner']}:{result['group']}   links {result['nlink']}   "
+        f"modified {result['modified']}",
+    ]
+    lines += _format_handles(result.get("open_by", []))
+    lines += [f"  WARNING: {w}" for w in result.get("warnings", [])]
+    return "\n".join(lines)
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
