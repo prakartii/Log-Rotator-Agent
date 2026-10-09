@@ -125,3 +125,80 @@ def _find_log(original: str, text: str, patterns) -> str:
         if word and word not in _STOP_WORDS:
             words.append(word)
     return " ".join(words) or None
+
+
+def parse_request(text: str, today: date = None) -> dict:
+    """Interpret a request. Returns {"tool", "arguments", "explanation"}; runs nothing.
+
+    Raises RotatorError(INVALID_REQUEST) for empty, unsafe or unclear requests.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise RotatorError(errors.INVALID_REQUEST, "The request is empty", request=text)
+    today = today or date.today()
+    clean = _clean(text)
+
+    if _REFUSE.search(clean):
+        raise RotatorError(
+            errors.INVALID_REQUEST,
+            "The log rotator never deletes logs: a writer holding the deleted log would keep "
+            "filling a file nobody can see. Ask it to rotate the log instead; that archives "
+            "the contents and empties the log in place.",
+            request=text, suggestion="rotate the log")
+
+    label, label_phrase = _find_label(clean, today)
+    used = [_DRY_RUN, _ARCHIVE_ONLY, _NO_COMPRESS, _WATCH, _WAIT, _WHO, _LIST_ARCHIVES, _ROTATE,
+            _INFO, _LIST_LOGS]
+    if label_phrase:
+        used.append(re.compile(re.escape(label_phrase)))
+    log = _find_log(text, clean, used)
+
+    dry_run = bool(_DRY_RUN.search(clean))
+    archive_only = bool(_ARCHIVE_ONLY.search(clean))
+    no_compress = bool(_NO_COMPRESS.search(clean))
+    if dry_run or archive_only or no_compress or _ROTATE.search(clean):
+        tool, arguments = "rotate_log", _rotate_arguments(clean, log, label, dry_run, archive_only,
+                                                          no_compress, text)
+    elif _WHO.search(clean):
+        tool, arguments = "find_open_handles", {"log": log} if log else {}
+    elif _LIST_ARCHIVES.search(clean):
+        tool, arguments = "list_archives", {"log": log} if log else {}
+    elif log is None and _LIST_LOGS.search(clean):
+        tool, arguments = "list_logs", {}
+    elif log is not None:
+        tool, arguments = "get_log_info", {"log": log}  # "the apache log?" -> describe it
+    else:
+        raise RotatorError(
+            errors.INVALID_REQUEST, f"Could not understand the request: {text!r}", request=text,
+            examples=["rotate the apache error logs", "list the logs",
+                      "what would happen if you rotated app.log", "who is writing to the nginx log",
+                      "show the archives of the apache error log"])
+    return {"tool": tool, "arguments": arguments, "explanation": _explain(tool, arguments)}
+
+
+def _rotate_arguments(clean, log, label, dry_run, archive_only, no_compress, text) -> dict:
+    if re.search(r"\b(all|every|everything)\b", clean) and log in (None, "all", "every"):
+        raise RotatorError(errors.INVALID_REQUEST,
+                           "Rotate one log at a time; name the log (see 'list the logs')",
+                           request=text)
+    if log is None:
+        raise RotatorError(errors.INVALID_REQUEST, "Which log should be rotated? Name it, e.g. "
+                           "'rotate the apache error log'", request=text)
+    arguments = {"log": log}
+    if dry_run:
+        arguments["dry_run"] = True
+    if archive_only:
+        arguments["truncate"] = False
+    if no_compress:
+        arguments["compress"] = False
+    if label:
+        arguments["label"] = label
+    if _WATCH.search(clean):
+        arguments["watch_writer"] = _WATCH_SECONDS
+    if _WAIT.search(clean):
+        arguments["lock_timeout"] = _WAIT_SECONDS
+    return arguments
+
+
+def _explain(tool: str, arguments: dict) -> str:
+    """rotate_log(log='nginx access', label='2026-09') - shown to the user before/with the result."""
+    return f"{tool}({', '.join(f'{k}={v!r}' for k, v in arguments.items())})"
