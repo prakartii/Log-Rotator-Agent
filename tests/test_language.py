@@ -172,6 +172,13 @@ class HandleRequestTest(unittest.TestCase):
                          "rotate_log(log='nginx access', dry_run=True)")
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_missing_log_lists_available_logs(self):
+        result = self.handle("rotate everything")
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
+        self.assertEqual(result["available_logs"], ["nginx_access.log"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
