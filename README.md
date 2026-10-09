@@ -357,6 +357,15 @@ call_tool("rotate_log", {"log": "the apache error logs", "dry_run": True})
 The same list is printed by `python3 agent.py tools`, and any tool can be called
 from the shell with `python3 agent.py call rotate_log '{"log": "apache error"}'`.
 
+| Tool | Arguments |
+|---|---|
+| `list_logs` | none |
+| `identify_log` | `log` (required) |
+| `get_log_info` | `log` |
+| `find_open_handles` | `log` |
+| `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `lock_timeout`, `watch_writer` |
+| `list_archives` | `log` |
+
 ## Demo: the inode stays the same
 
 ```bash
