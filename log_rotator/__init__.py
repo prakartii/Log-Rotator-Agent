@@ -10,17 +10,21 @@ Package layout:
     tools/         - small, controlled OS-level operations (one concern each)
     rotate.py      - the safe rotation pipeline
     agent_tools.py - the tool interface for the master/orchestrator agent
+    language.py    - plain-English requests -> one tool call
 
 The master agent only needs two functions:
 
     from log_rotator import describe_tools, call_tool
     describe_tools()                                    # tool names + JSON schemas
     call_tool("rotate_log", {"log": "apache error"})   # -> structured result dict
+
+or, for plain-English requests, handle_request("rotate the apache error logs").
 """
 
 __version__ = "0.1.0"
 AGENT_NAME = "log_rotator"
 
 from .agent_tools import call_tool, describe_tools  # noqa: E402
+from .language import handle_request, parse_request  # noqa: E402
 
-__all__ = ["AGENT_NAME", "call_tool", "describe_tools"]
+__all__ = ["AGENT_NAME", "call_tool", "describe_tools", "handle_request", "parse_request"]
