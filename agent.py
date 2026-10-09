@@ -78,10 +78,13 @@ def tool_call(args) -> tuple:
 
 def format_result(result: dict) -> str:
     """Human-readable text for a tool result; unknown results fall back to JSON."""
+    # For plain-English requests, first say what was understood.
+    heading = (f"Understood: {result['interpreted_as']['explanation']}\n"
+               if "interpreted_as" in result else "")
     if result["status"] == "error":
-        return _format_error(result)
+        return heading + _format_error(result)
     formatter = _FORMATTERS.get(result.get("action"))
-    return formatter(result) if formatter else json.dumps(result, indent=2)
+    return heading + (formatter(result) if formatter else json.dumps(result, indent=2))
 
 
 def _format_error(result: dict) -> str:
