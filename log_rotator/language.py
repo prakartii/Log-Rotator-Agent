@@ -120,9 +120,10 @@ def _find_log(original: str, text: str, patterns) -> str:
         text = pattern.sub(" ", text)
     words = []
     for word in text.split():
-        word = word.strip(".'\"`:")
-        if word.endswith("'s"):
+        word = word.strip(".\"`:")
+        if word.endswith("'s"):  # "nginx's", or the "'s" left over from "what's"
             word = word[:-2]
+        word = word.strip("'")
         if word and word not in _STOP_WORDS:
             words.append(word)
     return " ".join(words) or None
@@ -163,7 +164,7 @@ def parse_request(text: str, today: date = None) -> dict:
         tool, arguments = "find_open_handles", {"log": log} if log else {}
     elif _LIST_ARCHIVES.search(clean):
         tool, arguments = "list_archives", {"log": log} if log else {}
-    elif log is None and _LIST_LOGS.search(clean):
+    elif log is None and _LIST_LOGS.search(clean) and re.search(r"\b(logs?|files?)\b", clean):
         tool, arguments = "list_logs", {}
     elif log is not None:
         tool, arguments = "get_log_info", {"log": log}  # "the apache log?" -> describe it
