@@ -19,7 +19,7 @@ import time
 import unittest
 from pathlib import Path
 
-from log_rotator import errors, rotate
+from log_rotator import call_tool, errors, rotate
 from log_rotator.tools import locking
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -200,6 +200,17 @@ class NonAppendWriterTest(StressTestCase):
         self.assertGreater(size, result["original_size"])
         with open(self.log, "rb") as f:
             self.assertEqual(f.read(1024), b"\0" * 1024)
+
+    def test_log_info_reports_the_hole_and_the_unsafe_writer(self):
+        writer = self.start_writer("--no-append", rate=200)
+        self.wait_for_size(16384)
+        self.rotate()
+        time.sleep(0.3)
+        info = call_tool("get_log_info", {"log": "apache_error"}, log_dir=self.logs)
+        self.assertEqual(info["status"], "success", info)
+        self.assertTrue(info["sparse"])
+        self.assertLess(info["disk_usage"], info["size"])
+        self.assertIn(f"pid {writer.pid} writes without O_APPEND", " ".join(info["warnings"]))
 
 
 if __name__ == "__main__":
