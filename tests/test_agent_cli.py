@@ -139,5 +139,21 @@ class ToolsAndCallCommandTest(CliTestCase):
         self.assertIn("not valid JSON", err.getvalue())
 
 
+class ProcessTest(CliTestCase):
+    def test_runs_as_a_separate_process(self):
+        """The master agent starts agent.py as a program; check the exit codes from outside."""
+        base = [sys.executable, str(PROJECT_ROOT / "agent.py"), "--json",
+                "--log-dir", str(self.logs), "--archive-dir", str(self.archives)]
+        ok = subprocess.run(base + ["rotate", "apache_error"], capture_output=True, text=True, timeout=30)
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        with gzip.open(json.loads(ok.stdout)["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data)
+        failed = subprocess.run(base + ["rotate", "no_such_log"], capture_output=True, text=True, timeout=30)
+        self.assertEqual(failed.returncode, 1)
+        self.assertEqual(json.loads(failed.stdout)["error_code"], "LOG_NOT_FOUND")
+        usage = subprocess.run(base + ["explode"], capture_output=True, text=True, timeout=30)
+        self.assertEqual(usage.returncode, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
