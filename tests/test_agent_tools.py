@@ -58,6 +58,10 @@ class ArgumentCheckTest(unittest.TestCase):
         result = agent_tools.call_tool("rotate_log", {"watch_writer": -1})
         self.assertInvalid(result, "at least 0")
 
+    def test_arguments_must_be_an_object(self):
+        result = agent_tools.call_tool("list_logs", ["apache"])
+        self.assertInvalid(result, "JSON object")
+
 
 if __name__ == "__main__":
     unittest.main()
