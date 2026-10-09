@@ -50,6 +50,12 @@ class ListCommandTest(CliTestCase):
         self.assertIn("1 log(s)", out)
         self.assertIn("apache_error.log", out)
 
+    def test_list_json_is_the_tool_result(self):
+        status, result = self.run_json("list")
+        self.assertEqual(status, 0)
+        self.assertEqual(result["action"], "list_logs")
+        self.assertEqual(result["logs"][0]["size"], len(self.data))
+
 
 if __name__ == "__main__":
     unittest.main()
