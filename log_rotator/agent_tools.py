@@ -12,8 +12,11 @@ call_tool() is the single entry point:
 * the LLM layer never touches files itself, it can only pick a tool.
 """
 
+from pathlib import Path
+
 from . import errors
 from .errors import RotatorError
+from .tools import log_info
 
 TOOLS = {}
 
@@ -89,3 +92,19 @@ def call_tool(name: str, arguments: dict = None, log_dir=None, archive_dir=None)
         return err.to_dict(action=name)
     except OSError as err:
         return errors.from_os_error(err).to_dict(action=name)
+
+
+# ---------------------------------------------------------------------------
+# The tools. Each receives the context (directories) first, then its arguments.
+
+_LOG_ARG = {"type": "string",
+            "description": "Name, alias, description or path of the log, e.g. 'the apache error logs'"}
+
+
+def _roots(context):
+    return [Path(context["log_dir"])] if context["log_dir"] else None
+
+
+@tool("list_logs", "List the active log files that the agent manages, with size and inode.")
+def _list_logs(context):
+    return log_info.list_logs(context["log_dir"])
