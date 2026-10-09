@@ -186,5 +186,21 @@ class ConcurrentRotatorsTest(StressTestCase):
         self.assertEqual(other.stat().st_size, 0)
 
 
+class NonAppendWriterTest(StressTestCase):
+    def test_writer_without_append_is_warned_about_and_leaves_a_hole(self):
+        writer = self.start_writer("--no-append", rate=200)
+        self.wait_for_size(16384)
+        result = self.rotate()
+        self.assertEqual(result["status"], "success", result)
+        self.assertIn(f"pid {writer.pid} writes without O_APPEND", " ".join(result["warnings"]))
+        self.assertEqual([h["append"] for h in result["open_by"]], [False])
+        time.sleep(0.3)
+        # The writer continued at its old offset: the start of the log is now a hole of zeros.
+        size = os.stat(self.log).st_size
+        self.assertGreater(size, result["original_size"])
+        with open(self.log, "rb") as f:
+            self.assertEqual(f.read(1024), b"\0" * 1024)
+
+
 if __name__ == "__main__":
     unittest.main()
