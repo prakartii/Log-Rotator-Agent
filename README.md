@@ -65,6 +65,7 @@ the results directly as JSON.
 | `watch_log_growth(path, inode)` | Samples inode + size until the writer's new lines appear | `stat` polling |
 | `rotation_lock(path)` | Lets only one rotation of a log run at a time; names the pid holding it | `flock(LOCK_EX \| LOCK_NB)` on `.<log>.rotate.lock` |
 | `writer_lock(fd)` | Pauses cooperative writers for the final catch-up and `ftruncate()` | `flock(LOCK_EX)` on the log vs. writers' `LOCK_SH` |
+| `list_archives(log)` | Lists the archives in `rotated_logs/`, newest first, parsed from their names | `scandir`, `lstat` (temp files and symlinks skipped) |
 | `rotate_log(log, ...)` | The whole pipeline below, returns one structured result | everything above |
 
 ### How an archive is written safely
