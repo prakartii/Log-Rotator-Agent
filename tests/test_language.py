@@ -21,6 +21,9 @@ class RotateRequestTest(unittest.TestCase):
         self.assertEqual(result["arguments"], {"log": "apache error"})
         self.assertEqual(result["explanation"], "rotate_log(log='apache error')")
 
+    def test_capitals_and_punctuation_are_ignored(self):
+        self.assertEqual(parse("Rotate the Apache Error logs.")["arguments"], {"log": "apache error"})
+
 
 if __name__ == "__main__":
     unittest.main()
