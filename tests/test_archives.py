@@ -54,6 +54,12 @@ class ListArchivesTest(unittest.TestCase):
         self.assertEqual(result["archives"][0]["size"], 3)
         self.assertEqual(result["total_size"], 4)
 
+    def test_filter_by_log_name(self):
+        self.make("apache_error.log.2026-10-01T100000.gz")
+        self.make("nginx_access.log.2026-10-01T100000.gz")
+        result = list_archives(self.dir, log_name="nginx_access.log")
+        self.assertEqual([a["log_name"] for a in result["archives"]], ["nginx_access.log"])
+
 
 if __name__ == "__main__":
     unittest.main()
