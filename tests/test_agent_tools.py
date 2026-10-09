@@ -54,6 +54,10 @@ class ArgumentCheckTest(unittest.TestCase):
         result = agent_tools.call_tool("rotate_log", {"lock_timeout": True})
         self.assertInvalid(result, "must be a number")
 
+    def test_negative_timeout(self):
+        result = agent_tools.call_tool("rotate_log", {"watch_writer": -1})
+        self.assertInvalid(result, "at least 0")
+
 
 if __name__ == "__main__":
     unittest.main()
