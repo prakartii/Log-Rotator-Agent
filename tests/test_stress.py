@@ -20,6 +20,7 @@ import unittest
 from pathlib import Path
 
 from log_rotator import errors, rotate
+from log_rotator.tools import locking
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WRITER = PROJECT_ROOT / "writer.py"
@@ -172,6 +173,17 @@ class ConcurrentRotatorsTest(StressTestCase):
         time.sleep(0.2)
         self.stop_writers()
         self.assertEveryLineOnce(self.line_counts())
+
+    def test_different_logs_rotate_independently(self):
+        """The rotation lock is per log: a busy apache log does not block the nginx log."""
+        other = self.logs / "nginx_access.log"
+        other.write_bytes(b"GET / 200\n" * 100)
+        with locking.rotation_lock(self.log, timeout=0):
+            busy = self.rotate()
+            free = rotate.rotate_log("nginx_access", log_dir=self.logs, archive_dir=self.archives)
+        self.assertEqual(busy["error_code"], errors.ROTATION_IN_PROGRESS)
+        self.assertEqual(free["status"], "success", free)
+        self.assertEqual(other.stat().st_size, 0)
 
 
 if __name__ == "__main__":
