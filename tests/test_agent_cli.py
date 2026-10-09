@@ -148,6 +148,13 @@ class AskCommandTest(CliTestCase):
         self.assertEqual(os.stat(self.log).st_size, 0)
         self.assertEqual(os.stat(self.log).st_ino, inode)
 
+    def test_ask_without_quotes(self):
+        status, result = self.run_json("ask", "what", "would", "happen", "if", "you", "rotated",
+                                       "apache_error.log")
+        self.assertEqual(status, 0, result)
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 class ProcessTest(CliTestCase):
     def test_runs_as_a_separate_process(self):
