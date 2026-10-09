@@ -52,6 +52,12 @@ class RotateRequestTest(unittest.TestCase):
         result = parse("truncate the app log but don't compress it")
         self.assertEqual(result["arguments"], {"log": "app", "compress": False})
 
+    def test_dry_run_phrases(self):
+        for text in ("what would happen if you rotated app.log?", "dry run: rotate app.log",
+                     "simulate rotating app.log"):
+            with self.subTest(text=text):
+                self.assertEqual(parse(text)["arguments"], {"log": "app.log", "dry_run": True})
+
 
 if __name__ == "__main__":
     unittest.main()
