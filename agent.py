@@ -96,6 +96,9 @@ def _format_error(result: dict) -> str:
     for key in ("candidates", "available_logs", "available_tools"):
         if result.get(key):
             lines.append(f"{key.replace('_', ' ').capitalize()}: {', '.join(result[key])}")
+    if result.get("examples"):
+        lines.append("Try for example:")
+        lines += [f'  python3 agent.py ask "{example}"' for example in result["examples"]]
     return "\n".join(lines)
 
 
