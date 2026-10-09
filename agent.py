@@ -47,6 +47,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="watch the writer continue for up to SECONDS")
     rotate.set_defaults(tool="rotate_log", params=["log", "dry_run", "compress", "truncate", "label",
                                                    "lock_timeout", "watch_writer"])
+
+    archives = commands.add_parser("archives", help="list rotated archives, newest first")
+    archives.add_argument("log", nargs="?", help="only archives of this log")
+    archives.set_defaults(tool="list_archives", params=["log"])
     return parser
 
 
