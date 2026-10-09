@@ -148,6 +148,14 @@ class ToolCallTest(unittest.TestCase):
         self.assertEqual(result["error_code"], errors.LOG_NOT_FOUND)
         self.assertEqual(result["action"], "rotate")
 
+    def test_paths_outside_the_log_directory_are_refused(self):
+        for log in ("/etc/passwd", str(self.logs / ".." / ".." / "etc" / "passwd")):
+            with self.subTest(log=log):
+                result = self.call("rotate_log", {"log": log})
+                self.assertEqual(result["status"], "error")
+                self.assertIn(result["error_code"], (errors.OUTSIDE_ALLOWED_DIR, errors.LOG_NOT_FOUND))
+                self.assertTrue(result["log_unchanged"])
+
 
 if __name__ == "__main__":
     unittest.main()
