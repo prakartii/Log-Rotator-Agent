@@ -93,6 +93,13 @@ class ToolCallTest(unittest.TestCase):
         self.assertEqual(result["size"], len(self.data))
         self.assertEqual(result["inode"], os.stat(self.log).st_ino)
 
+    def test_dry_run_changes_nothing(self):
+        result = self.call("rotate_log", {"log": "apache_error", "dry_run": True})
+        self.assertEqual(result["status"], "success", result)
+        self.assertTrue(result["would_truncate"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+        self.assertFalse(self.archives.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
