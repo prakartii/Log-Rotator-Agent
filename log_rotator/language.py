@@ -76,9 +76,9 @@ def _find_label(text: str, today: date):
     match = re.search(r"\b(\d{4}-\d{2})(?:'s)?\b", text)
     if match:
         return match.group(1), match.group(0)
-    match = re.search(r"\b(?:for |from |of )?(" + "|".join(_MONTHS) + r")(?:'s)?\b", text)
-    if match:
-        month = _MONTHS.index(match.group(1)) + 1
+    match = re.search(r"\b(for |from |of )?(" + "|".join(_MONTHS) + r")(?:'s)?\b", text)
+    if match and (match.group(2) != "may" or match.group(1)):  # "may I ..." is not a month
+        month = _MONTHS.index(match.group(2)) + 1
         year = today.year if month <= today.month else today.year - 1
         return f"{year}-{month:02d}", match.group(0)
     return None, None

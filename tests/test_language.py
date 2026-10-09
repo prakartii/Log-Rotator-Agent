@@ -69,6 +69,10 @@ class RotateRequestTest(unittest.TestCase):
         result = parse("rotate the app log, wait if another rotation is running")
         self.assertEqual(result["arguments"], {"log": "app", "lock_timeout": 10.0})
 
+    def test_may_is_only_a_month_after_for(self):
+        self.assertNotIn("label", parse("may I rotate the app log?")["arguments"])
+        self.assertEqual(parse("rotate the app log for may")["arguments"]["label"], "2026-05")
+
 
 if __name__ == "__main__":
     unittest.main()
