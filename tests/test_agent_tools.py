@@ -4,6 +4,7 @@ import gzip
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -118,6 +119,28 @@ class ToolCallTest(unittest.TestCase):
         self.assertEqual(result["count"], 1)
         self.assertEqual(result["archives"][0]["log_name"], "nginx_access.log")
         self.assertEqual(self.call("list_archives")["count"], 2)
+
+    def test_find_open_handles_sees_our_descriptor_from_a_child(self):
+        read_end, write_end = os.pipe()
+        pid = os.fork()
+        if pid == 0:  # child: hold the log open for appending until the parent is done
+            os.close(read_end)
+            os.open(self.log, os.O_WRONLY | os.O_APPEND)
+            os.write(write_end, b"ready")
+            time.sleep(10)
+            os._exit(0)
+        os.close(write_end)
+        try:
+            os.read(read_end, 5)
+            result = self.call("find_open_handles", {"log": "apache_error"})
+            self.assertEqual(result["status"], "success", result)
+            self.assertEqual([h["pid"] for h in result["open_by"]], [pid])
+            self.assertTrue(result["open_by"][0]["append"])
+            self.assertEqual(result["warnings"], [])
+        finally:
+            os.kill(pid, 9)
+            os.waitpid(pid, 0)
+            os.close(read_end)
 
 
 if __name__ == "__main__":
