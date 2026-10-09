@@ -280,5 +280,26 @@ class PermissionTest(StressTestCase):
         self.assertEqual(os.stat(self.log).st_mode & 0o777, 0o640)
 
 
+class KilledRotatorTest(StressTestCase):
+    def test_rotator_killed_at_any_moment_loses_nothing(self):
+        """SIGKILL a rotator at different moments: every line stays in the log or an archive."""
+        writer = self.start_writer("--cooperative", "--prefill-mb", "20", rate=0)
+        self.wait_for_size(20 * 1024 * 1024, timeout=30)
+        writer.terminate()
+        writer.wait(timeout=5)
+        command = [sys.executable, str(AGENT), "--json", "--log-dir", str(self.logs),
+                   "--archive-dir", str(self.archives), "rotate", "apache_error", "--lock-timeout", "5"]
+        for delay in (0.05, 0.2, 0.4):
+            rotator = subprocess.Popen(command, stdout=subprocess.DEVNULL)
+            time.sleep(delay)
+            rotator.kill()
+            rotator.wait(timeout=5)
+        final = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        self.assertEqual(final.returncode, 0, final.stdout)  # no stale lock left behind
+        counts = self.line_counts()
+        self.assertEqual([line for line, n in counts.items() if n > 1], [], "lines archived twice")
+        self.assertEqual(len(counts), len({seq for _, seq in counts}))
+
+
 if __name__ == "__main__":
     unittest.main()
