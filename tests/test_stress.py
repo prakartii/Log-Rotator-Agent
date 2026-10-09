@@ -270,6 +270,13 @@ class PermissionTest(StressTestCase):
         self.assertEqual(os.stat(result["archive"]).st_mode & 0o007, 0, "archive readable by others")
         self.assertEqual(os.stat(self.archives).st_mode & 0o007, 0, "archive dir open to others")
 
+    def test_log_mode_is_kept(self):
+        os.chmod(self.log, 0o640)
+        result = self.rotate()
+        self.assertEqual(result["status"], "success", result)
+        self.assertTrue(result["rotation_checks"]["mode_preserved"])
+        self.assertEqual(os.stat(self.log).st_mode & 0o777, 0o640)
+
 
 if __name__ == "__main__":
     unittest.main()
