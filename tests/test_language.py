@@ -90,6 +90,12 @@ class OtherRequestTest(unittest.TestCase):
         result = parse("which process has app.log open")
         self.assertEqual(result["arguments"], {"log": "app.log"})
 
+    def test_list_archives(self):
+        self.assertEqual(parse("show the archives of the apache error log")["arguments"],
+                         {"log": "apache error"})
+        result = parse("show rotated logs")
+        self.assertEqual((result["tool"], result["arguments"]), ("list_archives", {}))
+
 
 class RefusedRequestTest(unittest.TestCase):
     def assertRefused(self, text, message_part):
