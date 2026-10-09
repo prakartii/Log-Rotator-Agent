@@ -204,3 +204,25 @@ def _rotate_arguments(clean, log, label, dry_run, archive_only, no_compress, tex
 def _explain(tool: str, arguments: dict) -> str:
     """rotate_log(log='nginx access', label='2026-09') - shown to the user before/with the result."""
     return f"{tool}({', '.join(f'{k}={v!r}' for k, v in arguments.items())})"
+
+
+def handle_request(text: str, log_dir=None, archive_dir=None, today: date = None) -> dict:
+    """Interpret a request and run the matching tool. Never raises for expected errors.
+
+    The result is the tool's own result plus "request" (the original text) and
+    "interpreted_as" (tool, arguments, explanation), so it is always visible
+    what the agent understood before it acted.
+    """
+    from .agent_tools import call_tool  # imported here: agent_tools does not depend on us
+
+    try:
+        parsed = parse_request(text, today=today)
+    except RotatorError as err:
+        result = err.to_dict(action="handle_request")
+        if "Which log" in err.message or "one log at a time" in err.message:
+            listing = call_tool("list_logs", log_dir=log_dir)
+            if listing["status"] == "success":
+                result["available_logs"] = [log["name"] for log in listing["logs"]]
+        return result
+    result = call_tool(parsed["tool"], parsed["arguments"], log_dir=log_dir, archive_dir=archive_dir)
+    return {**result, "request": text, "interpreted_as": parsed}
