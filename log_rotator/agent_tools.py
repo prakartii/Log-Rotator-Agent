@@ -108,3 +108,9 @@ def _roots(context):
 @tool("list_logs", "List the active log files that the agent manages, with size and inode.")
 def _list_logs(context):
     return log_info.list_logs(context["log_dir"])
+
+
+@tool("identify_log", "Resolve a log name, alias or description to the validated log path.",
+      {"log": _LOG_ARG}, required=["log"])
+def _identify_log(context, log):
+    return log_info.identify_log(log, log_dir=context["log_dir"], allowed_roots=_roots(context))
