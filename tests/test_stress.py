@@ -1,0 +1,105 @@
+"""Concurrency, writer and permission tests (phase 10).
+
+These tests use real processes: several writer.py processes appending to the
+same log, several agent.py processes rotating it at the same time, writers
+without O_APPEND, and files or directories with restrictive permissions.
+The main check is always the same: every line a writer wrote is found
+exactly once, either in an archive or in the live log.
+"""
+
+import collections
+import gzip
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+from log_rotator import errors, rotate
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+WRITER = PROJECT_ROOT / "writer.py"
+AGENT = PROJECT_ROOT / "agent.py"
+LINE_ID = re.compile(rb"\[pid (\d+)\] .* seq=(\d+)\n")
+
+
+@unittest.skipUnless(os.path.isdir("/proc"), "requires Linux")
+class StressTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        self.logs = base / "logs"
+        self.archives = base / "rotated_logs"
+        self.logs.mkdir()
+        self.log = self.logs / "apache_error.log"
+        self.log.write_bytes(b"")
+        self.writers = []
+
+    def tearDown(self):
+        self.stop_writers()
+        self.tmp.cleanup()
+
+    def start_writer(self, *options, rate=1000):
+        proc = subprocess.Popen([sys.executable, str(WRITER), str(self.log), "--rate", str(rate),
+                                 "--quiet", *options], stdout=subprocess.DEVNULL)
+        self.writers.append(proc)
+        return proc
+
+    def stop_writers(self):
+        for proc in self.writers:
+            if proc.poll() is None:
+                proc.terminate()
+            proc.wait(timeout=5)
+
+    def rotate(self, **kwargs):
+        kwargs.setdefault("log_dir", self.logs)
+        kwargs.setdefault("archive_dir", self.archives)
+        return rotate.rotate_log("apache_error", **kwargs)
+
+    def wait_for_size(self, size, timeout=5.0):
+        deadline = time.monotonic() + timeout
+        while os.stat(self.log).st_size < size and time.monotonic() < deadline:
+            time.sleep(0.02)
+
+    def line_counts(self):
+        """How often each (writer pid, seq) line appears in all archives plus the live log."""
+        data = self.log.read_bytes()
+        for archive in sorted(self.archives.iterdir()) if self.archives.exists() else []:
+            opener = gzip.open if archive.name.endswith(".gz") else open
+            with opener(archive, "rb") as f:
+                data += f.read()
+        return collections.Counter(LINE_ID.findall(data))
+
+    def assertEveryLineOnce(self, counts):
+        duplicated = [line for line, n in counts.items() if n > 1]
+        self.assertEqual(duplicated, [], "lines archived twice")
+        by_writer = collections.defaultdict(set)
+        for pid, seq in counts:
+            by_writer[pid].add(int(seq))
+        for pid, seqs in by_writer.items():
+            self.assertEqual(seqs, set(range(1, max(seqs) + 1)), f"writer {pid} lost lines")
+
+
+class MultipleWritersTest(StressTestCase):
+    def test_three_cooperative_writers_lose_nothing(self):
+        for _ in range(3):
+            self.start_writer("--cooperative")
+        results = []
+        for _ in range(3):
+            time.sleep(0.3)
+            result = self.rotate()
+            self.assertEqual(result["status"], "success", result)
+            self.assertEqual(result["bytes_lost"], 0)
+            results.append(result)
+        time.sleep(0.2)
+        self.stop_writers()
+        counts = self.line_counts()
+        self.assertEqual(len({pid for pid, _ in counts}), 3, "lines from all three writers")
+        self.assertEveryLineOnce(counts)
+
+
+if __name__ == "__main__":
+    unittest.main()
