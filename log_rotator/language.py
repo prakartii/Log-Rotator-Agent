@@ -93,3 +93,35 @@ _ROTATE = re.compile(r"\b(rotate\w*|compress\w*|gzip\w*|truncat\w*|shrink\w*|emp
 _LIST_LOGS = re.compile(r"\b(list|which|what|show|available|all)\b")
 _INFO = re.compile(r"\b(info\w*|details?|size|how (?:big|large)|inode|status|stat|describe|"
                    r"show|tell me about|look at|check)\b")
+
+_STOP_WORDS = {
+    "please", "can", "could", "would", "will", "you", "me", "i", "we", "us", "let's", "the", "a", "an",
+    "my", "our", "this", "that", "these", "those", "of", "for", "to", "and", "but", "now", "it",
+    "its", "is", "are", "be", "do", "does", "log", "logs", "file", "files", "in", "on", "at", "with",
+    "then", "also", "just", "current", "currently", "active", "if", "from", "so", "give", "get",
+    "about", "there", "here", "up", "out", "again", "today", "right", "away", "agent", "hey", "ok",
+    "okay", "go", "ahead", "want", "need", "like", "everything", "need", "some", "space", "disk",
+    "rotated", "rotating", "else", "any", "any", "how", "much", "many",
+}
+
+
+def _find_log(original: str, text: str, patterns) -> str:
+    """What is left after removing intent and option words names the log (or None).
+
+    A path ("logs/app.log", "/etc/passwd") is taken from the original text so its
+    case is kept; it is still validated later by identify_log(), like any request.
+    """
+    for token in original.split():
+        token = token.strip("'\"`?!,;:")
+        if "/" in token:
+            return token.rstrip(".")
+    for pattern in patterns:
+        text = pattern.sub(" ", text)
+    words = []
+    for word in text.split():
+        word = word.strip(".'\"`:")
+        if word.endswith("'s"):
+            word = word[:-2]
+        if word and word not in _STOP_WORDS:
+            words.append(word)
+    return " ".join(words) or None
