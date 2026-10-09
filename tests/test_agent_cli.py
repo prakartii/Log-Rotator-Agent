@@ -155,6 +155,11 @@ class AskCommandTest(CliTestCase):
         self.assertTrue(result["dry_run"])
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_ask_not_understood_suggests_examples(self):
+        status, out = self.run_cli("ask", "make me a sandwich")
+        self.assertEqual(status, 1)
+        self.assertIn("Try for example:", out)
+
 
 class ProcessTest(CliTestCase):
     def test_runs_as_a_separate_process(self):

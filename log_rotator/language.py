@@ -167,14 +167,23 @@ def parse_request(text: str, today: date = None) -> dict:
     elif log is None and _LIST_LOGS.search(clean) and re.search(r"\b(logs?|files?)\b", clean):
         tool, arguments = "list_logs", {}
     elif log is not None:
-        tool, arguments = "get_log_info", {"log": log}  # "the apache log?" -> describe it
+        # No known verb: "the apache log?" -> describe it. Only a guess, see handle_request().
+        parsed = {"tool": "get_log_info", "arguments": {"log": log},
+                  "explanation": _explain("get_log_info", {"log": log}), "guessed": True}
+        return parsed
     else:
-        raise RotatorError(
-            errors.INVALID_REQUEST, f"Could not understand the request: {text!r}", request=text,
-            examples=["rotate the apache error logs", "list the logs",
-                      "what would happen if you rotated app.log", "who is writing to the nginx log",
-                      "show the archives of the apache error log"])
+        raise _not_understood(text)
     return {"tool": tool, "arguments": arguments, "explanation": _explain(tool, arguments)}
+
+
+_EXAMPLES = ["rotate the apache error logs", "list the logs",
+             "what would happen if you rotated app.log", "who is writing to the nginx log",
+             "show the archives of the apache error log"]
+
+
+def _not_understood(text: str) -> RotatorError:
+    return RotatorError(errors.INVALID_REQUEST, f"Could not understand the request: {text!r}",
+                        request=text, examples=_EXAMPLES)
 
 
 def _rotate_arguments(clean, log, label, dry_run, archive_only, no_compress, text) -> dict:
@@ -226,4 +235,9 @@ def handle_request(text: str, log_dir=None, archive_dir=None, today: date = None
                 result["available_logs"] = [log["name"] for log in listing["logs"]]
         return result
     result = call_tool(parsed["tool"], parsed["arguments"], log_dir=log_dir, archive_dir=archive_dir)
+    if parsed.get("guessed") and result.get("error_code") == errors.LOG_NOT_FOUND:
+        # The words were neither a command nor a log name ("make me a sandwich").
+        result = {**_not_understood(text).to_dict(action="handle_request"),
+                  "available_logs": result.get("available_logs", [])}
+        return result
     return {**result, "request": text, "interpreted_as": parsed}
