@@ -25,7 +25,7 @@ from log_rotator.tools import locking
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WRITER = PROJECT_ROOT / "writer.py"
 AGENT = PROJECT_ROOT / "agent.py"
-LINE_ID = re.compile(rb"\[pid (\d+)\] .* seq=(\d+)\n")
+LINE_ID = re.compile(rb"\[pid (\d+)\] .* seq=(-?\d+)\n")  # prefilled history lines have seq < 0
 
 
 @unittest.skipUnless(os.path.isdir("/proc"), "requires Linux")
@@ -82,7 +82,8 @@ class StressTestCase(unittest.TestCase):
         self.assertEqual(duplicated, [], "lines archived twice")
         by_writer = collections.defaultdict(set)
         for pid, seq in counts:
-            by_writer[pid].add(int(seq))
+            if int(seq) > 0:
+                by_writer[pid].add(int(seq))
         for pid, seqs in by_writer.items():
             self.assertEqual(seqs, set(range(1, max(seqs) + 1)), f"writer {pid} lost lines")
 
@@ -105,20 +106,22 @@ class MultipleWritersTest(StressTestCase):
         self.assertEveryLineOnce(counts)
 
     def test_plain_append_writers_never_duplicate_and_report_losses(self):
-        """Writers without flock are not paused: a line can be lost, but only as reported."""
-        for _ in range(3):
-            self.start_writer()
-        lost = 0
+        """Writers without flock are not paused around ftruncate().
+
+        A line written between the rotator's last fstat() and ftruncate() is lost and
+        cannot even be counted (bytes_lost is only a lower bound for such writers).
+        What must never happen is a line being archived twice, or a writer dying.
+        """
+        writers = [self.start_writer() for _ in range(3)]
         for _ in range(3):
             time.sleep(0.3)
             result = self.rotate()
             self.assertEqual(result["status"], "success", result)
-            lost += result["bytes_lost"]
+        for writer in writers:
+            self.assertIsNone(writer.poll(), "writer must keep running")
         self.stop_writers()
         counts = self.line_counts()
         self.assertEqual([line for line, n in counts.items() if n > 1], [], "lines archived twice")
-        if lost == 0:
-            self.assertEveryLineOnce(counts)
 
     def test_every_writer_stays_attached_to_the_same_inode(self):
         writers = [self.start_writer(rate=200) for _ in range(3)]
@@ -282,11 +285,17 @@ class PermissionTest(StressTestCase):
 
 class KilledRotatorTest(StressTestCase):
     def test_rotator_killed_at_any_moment_loses_nothing(self):
-        """SIGKILL a rotator at different moments: every line stays in the log or an archive."""
+        """SIGKILL a rotator at different moments: every line stays in the log or an archive.
+
+        A rotator killed after publishing its archive but before ftruncate() leaves the
+        lines in both places, so the next rotation archives them again. Duplicates are
+        the safe direction after a crash; a missing line would be a bug.
+        """
         writer = self.start_writer("--cooperative", "--prefill-mb", "20", rate=0)
         self.wait_for_size(20 * 1024 * 1024, timeout=30)
         writer.terminate()
         writer.wait(timeout=5)
+        lines_written = set(LINE_ID.findall(self.log.read_bytes()))
         command = [sys.executable, str(AGENT), "--json", "--log-dir", str(self.logs),
                    "--archive-dir", str(self.archives), "rotate", "apache_error", "--lock-timeout", "5"]
         for delay in (0.05, 0.2, 0.4):
@@ -296,9 +305,9 @@ class KilledRotatorTest(StressTestCase):
             rotator.wait(timeout=5)
         final = subprocess.run(command, capture_output=True, text=True, timeout=60)
         self.assertEqual(final.returncode, 0, final.stdout)  # no stale lock left behind
-        counts = self.line_counts()
-        self.assertEqual([line for line, n in counts.items() if n > 1], [], "lines archived twice")
-        self.assertEqual(len(counts), len({seq for _, seq in counts}))
+        self.assertEqual(os.stat(self.log).st_size, 0)
+        missing = lines_written - set(self.line_counts())
+        self.assertEqual(len(missing), 0, "lines lost after a killed rotation")
 
 
 if __name__ == "__main__":
