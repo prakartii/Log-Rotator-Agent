@@ -179,6 +179,12 @@ class HandleRequestTest(unittest.TestCase):
         self.assertEqual(result["available_logs"], ["nginx_access.log"])
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_delete_request_changes_nothing(self):
+        result = self.handle("delete the nginx access log")
+        self.assertEqual(result["status"], "error")
+        self.assertIn("never deletes", result["message"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
