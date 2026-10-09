@@ -48,6 +48,10 @@ class RotateRequestTest(unittest.TestCase):
                 self.assertEqual(result["tool"], "rotate_log")
                 self.assertEqual(result["arguments"], {"log": "nginx access", "truncate": False})
 
+    def test_without_compression(self):
+        result = parse("truncate the app log but don't compress it")
+        self.assertEqual(result["arguments"], {"log": "app", "compress": False})
+
 
 if __name__ == "__main__":
     unittest.main()
