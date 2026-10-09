@@ -60,6 +60,13 @@ class ListArchivesTest(unittest.TestCase):
         result = list_archives(self.dir, log_name="nginx_access.log")
         self.assertEqual([a["log_name"] for a in result["archives"]], ["nginx_access.log"])
 
+    def test_hidden_temp_files_and_symlinks_are_skipped(self):
+        self.make(".apache_error.log.2026-10-01T100000.gz.123.snapshot")
+        self.make("apache_error.log.2026-10-01T100000.gz")
+        os.symlink(self.dir / "apache_error.log.2026-10-01T100000.gz",
+                   self.dir / "apache_error.log.2026-10-02T100000.gz")
+        self.assertEqual(list_archives(self.dir)["count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
