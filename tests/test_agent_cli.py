@@ -132,6 +132,12 @@ class ToolsAndCallCommandTest(CliTestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"-> {self.log} (matched by alias)", out)
 
+    def test_call_with_invalid_json_is_a_usage_error(self):
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit) as exit_:
+            self.run_cli("call", "identify_log", "{bad")
+        self.assertEqual(exit_.exception.code, 2)
+        self.assertIn("not valid JSON", err.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
