@@ -65,6 +65,10 @@ class RotateRequestTest(unittest.TestCase):
         result = parse("rotate the apache log and make sure the writer keeps running")
         self.assertEqual(result["arguments"], {"log": "apache", "watch_writer": 3.0})
 
+    def test_wait_for_a_running_rotation(self):
+        result = parse("rotate the app log, wait if another rotation is running")
+        self.assertEqual(result["arguments"], {"log": "app", "lock_timeout": 10.0})
+
 
 if __name__ == "__main__":
     unittest.main()

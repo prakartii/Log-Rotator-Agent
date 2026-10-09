@@ -42,7 +42,7 @@ _WATCH = re.compile(r"\b(?:make sure|check|verify|confirm|ensure)\b[a-z' ]*?\b(?
                     r"(?: (?:running|writing|going|working))?")
 _WATCH_SECONDS = 3.0
 # "wait if another rotation is running" -> lock_timeout.
-_WAIT = re.compile(r"\b(?:wait|queue)\b(?: (?:if|until|for)\b[a-z' ]*?(?:busy|running|finish\w*|done|rotation))?")
+_WAIT = re.compile(r"\b(?:wait|queue)\b(?: (?:if|until|for)\b[a-z' ]*(?:busy|running|finish\w*|done|rotation))?")
 _WAIT_SECONDS = 10.0
 
 _MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
