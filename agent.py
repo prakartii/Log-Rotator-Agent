@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 
-from log_rotator import agent_tools
+from log_rotator import agent_tools, language
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,6 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log-dir", help="directory of the active logs (default: logs/)")
     parser.add_argument("--archive-dir", help="where archives are written (default: rotated_logs/)")
     commands = parser.add_subparsers(dest="command", required=True, metavar="command")
+
+    ask = commands.add_parser("ask", help='plain-English request, e.g. "rotate the apache error logs"')
+    ask.add_argument("request", nargs="+", help="the request (quotes are optional)")
 
     commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs", params=[])
 
@@ -189,6 +192,11 @@ def main(argv=None) -> int:
     if args.command == "tools":
         print(json.dumps(agent_tools.describe_tools(), indent=2))
         return 0
+    if args.command == "ask":
+        result = language.handle_request(" ".join(args.request), log_dir=args.log_dir,
+                                         archive_dir=args.archive_dir)
+        print(json.dumps(result, indent=2) if args.json else format_result(result))
+        return 0 if result["status"] == "success" else 1
     try:
         name, arguments = tool_call(args)
     except ValueError as err:
