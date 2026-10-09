@@ -36,6 +36,10 @@ class RotateRequestTest(unittest.TestCase):
         self.assertEqual(parse("rotate the app log for september")["arguments"]["label"], "2026-09")
         self.assertEqual(parse("rotate the app log for november")["arguments"]["label"], "2025-11")
 
+    def test_explicit_label(self):
+        result = parse("rotate the nginx error log, label it nightly")
+        self.assertEqual(result["arguments"], {"log": "nginx error", "label": "nightly"})
+
 
 if __name__ == "__main__":
     unittest.main()
