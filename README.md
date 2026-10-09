@@ -423,6 +423,23 @@ labels ("label it nightly").
   the available logs.
 - anything it cannot map to a tool: the error lists example requests.
 
+Every result says how the request was understood (`"interpreted_as"` in JSON).
+Real output:
+
+```
+$ python3 agent.py ask "compress last month's nginx access log"
+Understood: rotate_log(log='nginx access', label='2026-09')
+Rotated /tmp/nl-demo/logs/nginx_access.log
+  archive:  /tmp/nl-demo/rotated_logs/nginx_access.log.2026-09.2026-10-09T163258.gz (104958 bytes, ratio 0.102)
+  archived: 1028894 bytes (caught up 0, lost 0)
+  inode:    18 -> 18 (preserved)
+  open by: no process
+
+$ python3 agent.py ask "rotate everything"
+ERROR INVALID_REQUEST: Rotate one log at a time; name the log (see 'list the logs')
+Available logs: apache_error.log, nginx_access.log
+```
+
 ## Demo: the inode stays the same
 
 ```bash
