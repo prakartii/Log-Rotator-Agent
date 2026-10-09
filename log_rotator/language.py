@@ -81,3 +81,15 @@ def _find_label(text: str, today: date):
         year = today.year if month <= today.month else today.year - 1
         return f"{year}-{month:02d}", match.group(0)
     return None, None
+
+
+# What the user wants done. Checked in this order; the first match wins.
+_REFUSE = re.compile(r"\b(delete|remove|rm|erase|unlink|destroy|wipe)\b")
+_WHO = re.compile(r"\b(who|which process\w*|what process\w*|lsof|open by|opened by|holding|"
+                  r"writing to|writes to|using)\b")
+_LIST_ARCHIVES = re.compile(r"\b(archives|rotated (?:logs|files)|history|previous rotations|backups)\b")
+_ROTATE = re.compile(r"\b(rotate\w*|compress\w*|gzip\w*|truncat\w*|shrink\w*|empty|clean ?up|"
+                     r"clear|free (?:up )?(?:disk )?space|archive|zip)\b")
+_LIST_LOGS = re.compile(r"\b(list|which|what|show|available|all)\b")
+_INFO = re.compile(r"\b(info\w*|details?|size|how (?:big|large)|inode|status|stat|describe|"
+                   r"show|tell me about|look at|check)\b")
