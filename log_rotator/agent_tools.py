@@ -14,7 +14,7 @@ call_tool() is the single entry point:
 
 from pathlib import Path
 
-from . import errors
+from . import errors, rotate
 from .errors import RotatorError
 from .tools import log_info, processes
 
@@ -131,3 +131,22 @@ def _find_open_handles(context, log=None):
     return errors.success("find_open_handles", log=path, count=len(handles), open_by=handles,
                           warnings=[f"pid {h['pid']} writes without O_APPEND"
                                     for h in processes.unsafe_writers(handles)])
+
+
+@tool("rotate_log", "Safely rotate a log: snapshot, gzip, verify, then empty it in place with "
+      "ftruncate() so the writer keeps running. Use dry_run to only report what would happen.", {
+          "log": _LOG_ARG,
+          "compress": {"type": "boolean", "description": "gzip the archive (default true)"},
+          "truncate": {"type": "boolean",
+                       "description": "empty the log after archiving (default true); false = archive only"},
+          "dry_run": {"type": "boolean", "description": "validate and report, change nothing"},
+          "label": {"type": "string",
+                    "description": "tag in the archive name, e.g. '2026-09' (letters, digits, - and _)"},
+          "lock_timeout": {"type": "number",
+                           "description": "seconds to wait if another rotation of this log is running"},
+          "watch_writer": {"type": "number",
+                           "description": "seconds to watch the writer continue after rotation"},
+      })
+def _rotate_log(context, log=None, **options):
+    return rotate.rotate_log(log, archive_dir=context["archive_dir"], log_dir=context["log_dir"],
+                             allowed_roots=_roots(context), **options)
