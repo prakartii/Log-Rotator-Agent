@@ -20,6 +20,8 @@ from log_rotator import agent_tools
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agent.py", description="Log Rotator Agent")
     parser.add_argument("--json", action="store_true", help="print the raw JSON result")
+    parser.add_argument("--log-dir", help="directory of the active logs (default: logs/)")
+    parser.add_argument("--archive-dir", help="where archives are written (default: rotated_logs/)")
     commands = parser.add_subparsers(dest="command", required=True, metavar="command")
 
     commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs", params=[])
@@ -85,7 +87,7 @@ def main(argv=None) -> int:
         name, arguments = tool_call(args)
     except ValueError as err:
         parser.error(str(err))  # exits with status 2
-    result = agent_tools.call_tool(name, arguments)
+    result = agent_tools.call_tool(name, arguments, log_dir=args.log_dir, archive_dir=args.archive_dir)
     print(json.dumps(result, indent=2) if args.json else format_result(result))
     return 0 if result["status"] == "success" else 1
 
