@@ -40,6 +40,14 @@ class RotateRequestTest(unittest.TestCase):
         result = parse("rotate the nginx error log, label it nightly")
         self.assertEqual(result["arguments"], {"log": "nginx error", "label": "nightly"})
 
+    def test_keep_the_log_means_archive_only(self):
+        for text in ("back up the nginx access log", "archive the nginx access log but keep the log",
+                     "compress the nginx access log without truncating it"):
+            with self.subTest(text=text):
+                result = parse(text)
+                self.assertEqual(result["tool"], "rotate_log")
+                self.assertEqual(result["arguments"], {"log": "nginx access", "truncate": False})
+
 
 if __name__ == "__main__":
     unittest.main()
