@@ -100,6 +100,16 @@ class ToolCallTest(unittest.TestCase):
         self.assertEqual(self.log.read_bytes(), self.data)
         self.assertFalse(self.archives.exists())
 
+    def test_rotate_archives_and_truncates(self):
+        inode = os.stat(self.log).st_ino
+        result = self.call("rotate_log", {"log": "apache error", "label": "2026-09"})
+        self.assertEqual(result["status"], "success", result)
+        self.assertIn(".2026-09.", result["archive"])
+        self.assertEqual(os.stat(self.log).st_size, 0)
+        self.assertEqual(os.stat(self.log).st_ino, inode)
+        with gzip.open(result["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
