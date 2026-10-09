@@ -27,6 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     info = commands.add_parser("info", help="inode, size, permissions and open handles of a log")
     info.add_argument("log", nargs="?", help="log name, alias or path (default: apache_error.log)")
     info.set_defaults(tool="get_log_info", params=["log"])
+
+    who = commands.add_parser("who", help="which processes have a log open (like lsof)")
+    who.add_argument("log", nargs="?", help="log name, alias or path")
+    who.set_defaults(tool="find_open_handles", params=["log"])
     return parser
 
 
