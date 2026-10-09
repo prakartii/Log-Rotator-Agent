@@ -45,6 +45,11 @@ class ArgumentCheckTest(unittest.TestCase):
         self.assertInvalid(result, "Missing argument(s)")
         self.assertEqual(result["missing"], ["log"])
 
+    def test_wrong_argument_type(self):
+        result = agent_tools.call_tool("rotate_log", {"dry_run": "yes"})
+        self.assertInvalid(result, "must be a boolean")
+        self.assertEqual(result["argument"], "dry_run")
+
 
 if __name__ == "__main__":
     unittest.main()
