@@ -96,6 +96,12 @@ class RefusedRequestTest(unittest.TestCase):
     def test_empty_request(self):
         self.assertRefused("   ", "empty")
 
+    def test_gibberish_lists_examples(self):
+        with self.assertRaises(RotatorError) as ctx:
+            parse("what's up?")
+        self.assertIn("Could not understand", ctx.exception.message)
+        self.assertIn("rotate the apache error logs", ctx.exception.details["examples"])
+
 
 if __name__ == "__main__":
     unittest.main()
