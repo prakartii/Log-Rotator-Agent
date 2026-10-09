@@ -1,11 +1,15 @@
 """Tests for natural-language request handling (log_rotator/language.py)."""
 
+import gzip
+import os
+import tempfile
 import unittest
 from datetime import date
+from pathlib import Path
 
 from log_rotator import errors
 from log_rotator.errors import RotatorError
-from log_rotator.language import parse_request
+from log_rotator.language import handle_request, parse_request
 
 TODAY = date(2026, 10, 9)
 
@@ -131,6 +135,35 @@ class RefusedRequestTest(unittest.TestCase):
             parse("what's up?")
         self.assertIn("Could not understand", ctx.exception.message)
         self.assertIn("rotate the apache error logs", ctx.exception.details["examples"])
+
+
+class HandleRequestTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        self.logs = base / "logs"
+        self.archives = base / "rotated_logs"
+        self.logs.mkdir()
+        self.log = self.logs / "nginx_access.log"
+        self.data = b"GET /index.html 200\n" * 500
+        self.log.write_bytes(self.data)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def handle(self, text):
+        return handle_request(text, log_dir=self.logs, archive_dir=self.archives, today=TODAY)
+
+    def test_request_is_carried_out(self):
+        inode = os.stat(self.log).st_ino
+        result = self.handle("compress last month's nginx access log")
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(Path(result["archive"]).name[:len("nginx_access.log.2026-09.")],
+                         "nginx_access.log.2026-09.")
+        self.assertEqual(os.stat(self.log).st_size, 0)
+        self.assertEqual(os.stat(self.log).st_ino, inode)
+        with gzip.open(result["archive"], "rb") as f:
+            self.assertEqual(f.read(), self.data)
 
 
 if __name__ == "__main__":
