@@ -31,6 +31,22 @@ def build_parser() -> argparse.ArgumentParser:
     who = commands.add_parser("who", help="which processes have a log open (like lsof)")
     who.add_argument("log", nargs="?", help="log name, alias or path")
     who.set_defaults(tool="find_open_handles", params=["log"])
+
+    rotate = commands.add_parser("rotate", help="archive a log and empty it in place")
+    rotate.add_argument("log", nargs="?", help="log name, alias or path")
+    rotate.add_argument("--dry-run", action="store_true", default=None,
+                        help="only report what would happen")
+    rotate.add_argument("--no-compress", dest="compress", action="store_const", const=False,
+                        help="keep a plain copy instead of gzip")
+    rotate.add_argument("--no-truncate", dest="truncate", action="store_const", const=False,
+                        help="archive only, leave the log as it is")
+    rotate.add_argument("--label", help="tag in the archive name, e.g. 2026-09")
+    rotate.add_argument("--lock-timeout", type=float, metavar="SECONDS",
+                        help="wait this long if another rotation is running")
+    rotate.add_argument("--watch", dest="watch_writer", type=float, metavar="SECONDS",
+                        help="watch the writer continue for up to SECONDS")
+    rotate.set_defaults(tool="rotate_log", params=["log", "dry_run", "compress", "truncate", "label",
+                                                   "lock_timeout", "watch_writer"])
     return parser
 
 
