@@ -61,6 +61,10 @@ class RotateRequestTest(unittest.TestCase):
     def test_paths_keep_their_case(self):
         self.assertEqual(parse("please rotate logs/App.log")["arguments"], {"log": "logs/App.log"})
 
+    def test_make_sure_the_writer_keeps_running(self):
+        result = parse("rotate the apache log and make sure the writer keeps running")
+        self.assertEqual(result["arguments"], {"log": "apache", "watch_writer": 3.0})
+
 
 if __name__ == "__main__":
     unittest.main()

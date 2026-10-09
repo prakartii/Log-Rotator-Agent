@@ -38,7 +38,8 @@ _NO_COMPRESS = re.compile(r"\b((?:don't|do not|without|no) (?:compress\w*|gzip\w
                           r"uncompressed|plain copy)\b")
 # "make sure the writer keeps running" -> watch the log grow again after rotation.
 _WATCH = re.compile(r"\b(?:make sure|check|verify|confirm|ensure)\b[a-z' ]*?\b(?:writer|process|app\w*|server)"
-                    r"\b[a-z' ]*?\b(?:keeps?|still|continues?|running|writing)\w*\b")
+                    r"\b[a-z' ]*?\b(?:keeps?|still|continues?|running|writing)\w*\b"
+                    r"(?: (?:running|writing|going|working))?")
 _WATCH_SECONDS = 3.0
 # "wait if another rotation is running" -> lock_timeout.
 _WAIT = re.compile(r"\b(?:wait|queue)\b(?: (?:if|until|for)\b[a-z' ]*?(?:busy|running|finish\w*|done|rotation))?")
