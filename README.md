@@ -235,6 +235,8 @@ finishes but adds a warning and reports `"writer_lock": {"acquired": false}`.
 | verification fails (corrupt / wrong content) | no | **removed** (not trustworthy) |
 | truncation fails | no | kept (it is verified) |
 | post-rotation check fails | **yes** | kept, and its path is in the error result |
+| rotator killed (`kill -9`) before `ftruncate()` | no | a finished archive may exist; the next rotation archives those lines again (duplicates, never loss) |
+| rotator killed after `ftruncate()` | yes | complete and verified |
 
 ### Verifying the rotation itself
 
