@@ -135,6 +135,13 @@ def _format_info(result):
     return "\n".join(lines)
 
 
+@_formats("find_open_handles")
+def _format_who(result):
+    lines = [result["log"]] + _format_handles(result["open_by"])
+    lines += [f"  WARNING: {w}" for w in result["warnings"]]
+    return "\n".join(lines)
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
