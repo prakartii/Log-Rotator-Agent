@@ -110,6 +110,15 @@ class ToolCallTest(unittest.TestCase):
         with gzip.open(result["archive"], "rb") as f:
             self.assertEqual(f.read(), self.data)
 
+    def test_list_archives_after_rotation(self):
+        self.call("rotate_log", {"log": "apache_error"})
+        self.call("rotate_log", {"log": "nginx_access.log", "truncate": False})
+        result = self.call("list_archives", {"log": "nginx access"})
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["archives"][0]["log_name"], "nginx_access.log")
+        self.assertEqual(self.call("list_archives")["count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
