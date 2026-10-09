@@ -415,6 +415,14 @@ on 2026-10-09, "compress last month's nginx log" writes
 the most recent September) and `2026-09` work the same way, and so do explicit
 labels ("label it nightly").
 
+**Refused requests** change nothing and return `INVALID_REQUEST`:
+
+- "delete / remove / rm the log": the agent never deletes logs (a writer would keep
+  filling a file without a name); it suggests rotating instead.
+- "rotate everything" or "rotate" with no log: one log at a time; the error lists
+  the available logs.
+- anything it cannot map to a tool: the error lists example requests.
+
 ## Demo: the inode stays the same
 
 ```bash
