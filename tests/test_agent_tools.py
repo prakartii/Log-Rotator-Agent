@@ -142,6 +142,12 @@ class ToolCallTest(unittest.TestCase):
             os.waitpid(pid, 0)
             os.close(read_end)
 
+    def test_tool_errors_are_returned_not_raised(self):
+        result = self.call("rotate_log", {"log": "mysql slow query"})
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_code"], errors.LOG_NOT_FOUND)
+        self.assertEqual(result["action"], "rotate")
+
 
 if __name__ == "__main__":
     unittest.main()
