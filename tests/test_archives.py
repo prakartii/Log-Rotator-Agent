@@ -26,6 +26,11 @@ class ParseArchiveNameTest(unittest.TestCase):
         self.assertEqual(parts["log_name"], "app.log")
         self.assertFalse(parts["compressed"])
 
+    def test_unrelated_names_are_ignored(self):
+        for name in ("notes.txt", "apache_error.log", "apache_error.log.2026-13-40T999999.gz"):
+            with self.subTest(name=name):
+                self.assertIsNone(parse_archive_name(name))
+
 
 if __name__ == "__main__":
     unittest.main()
