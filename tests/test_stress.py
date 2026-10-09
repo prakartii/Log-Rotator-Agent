@@ -245,6 +245,14 @@ class PermissionTest(StressTestCase):
         self.assertUnchanged(self.rotate(), errors.PERMISSION_DENIED)
         self.assertEqual(list(self.archives.iterdir()), [])
 
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses file permissions")
+    def test_write_only_log_is_refused(self):
+        os.chmod(self.log, 0o200)  # -w-------: could be truncated, but not archived
+        result = self.rotate()
+        os.chmod(self.log, 0o644)
+        self.assertUnchanged(result, errors.PERMISSION_DENIED)
+        self.assertFalse(self.archives.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
