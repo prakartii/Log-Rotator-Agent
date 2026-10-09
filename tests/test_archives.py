@@ -67,6 +67,11 @@ class ListArchivesTest(unittest.TestCase):
                    self.dir / "apache_error.log.2026-10-02T100000.gz")
         self.assertEqual(list_archives(self.dir)["count"], 1)
 
+    def test_missing_directory_means_no_archives(self):
+        result = list_archives(self.dir / "never_created")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["archives"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
