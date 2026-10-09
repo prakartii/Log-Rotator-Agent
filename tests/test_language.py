@@ -81,6 +81,11 @@ class OtherRequestTest(unittest.TestCase):
                 self.assertEqual(parse(text), {"tool": "list_logs", "arguments": {},
                                                "explanation": "list_logs()"})
 
+    def test_who_is_writing(self):
+        result = parse("who is writing to the apache error log?")
+        self.assertEqual(result["tool"], "find_open_handles")
+        self.assertEqual(result["arguments"], {"log": "apache error"})
+
 
 class RefusedRequestTest(unittest.TestCase):
     def assertRefused(self, text, message_part):
