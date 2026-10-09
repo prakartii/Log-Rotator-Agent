@@ -40,6 +40,11 @@ class ArgumentCheckTest(unittest.TestCase):
         result = agent_tools.call_tool("rotate_log", {"log": "app", "path": "/etc/passwd"})
         self.assertInvalid(result, "Unknown argument(s) for rotate_log: path")
 
+    def test_missing_required_argument(self):
+        result = agent_tools.call_tool("identify_log", {})
+        self.assertInvalid(result, "Missing argument(s)")
+        self.assertEqual(result["missing"], ["log"])
+
 
 if __name__ == "__main__":
     unittest.main()
