@@ -343,6 +343,20 @@ Exit status: `0` success, `1` the tool returned an error (the error code is prin
 `2` invalid command line. The master agent can therefore run `agent.py --json ...`
 as a program, check the exit status and parse stdout.
 
+## Tool interface for the master agent
+
+The orchestrator never touches files itself. It reads the tool list and picks one:
+
+```python
+from log_rotator import describe_tools, call_tool
+
+describe_tools()   # [{"name": "rotate_log", "description": "...", "input_schema": {...}}, ...]
+call_tool("rotate_log", {"log": "the apache error logs", "dry_run": True})
+```
+
+The same list is printed by `python3 agent.py tools`, and any tool can be called
+from the shell with `python3 agent.py call rotate_log '{"log": "apache error"}'`.
+
 ## Demo: the inode stays the same
 
 ```bash
