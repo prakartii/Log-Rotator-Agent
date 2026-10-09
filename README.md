@@ -18,7 +18,7 @@ same and the writer process keeps running on its open file descriptor.
 ## Project structure
 
 ```
-agent.py                 # command-line entry point: list, info, who, rotate, archives, tools, call
+agent.py                 # command-line entry point: ask, list, info, who, rotate, archives, tools, call
 writer.py                # simulated long-running process that appends to a log
 demo/
     inode_demo.py        # presentation demo: same inode before/after, writer keeps running
@@ -37,6 +37,7 @@ log_rotator/
         archives.py      # list_archives(): rotated archives, newest first
     rotate.py            # rotate_log(): the full safe-rotation pipeline
     agent_tools.py       # describe_tools(), call_tool(): interface for the master agent
+    language.py          # parse_request(), handle_request(): plain-English requests
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
