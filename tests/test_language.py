@@ -58,6 +58,9 @@ class RotateRequestTest(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(parse(text)["arguments"], {"log": "app.log", "dry_run": True})
 
+    def test_paths_keep_their_case(self):
+        self.assertEqual(parse("please rotate logs/App.log")["arguments"], {"log": "logs/App.log"})
+
 
 if __name__ == "__main__":
     unittest.main()
