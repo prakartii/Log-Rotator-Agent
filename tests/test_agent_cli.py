@@ -120,5 +120,13 @@ class RotateCommandTest(CliTestCase):
         self.assertIn("The log was not changed.", out)
 
 
+class ToolsAndCallCommandTest(CliTestCase):
+    def test_tools_prints_schemas(self):
+        status, out = self.run_cli("tools")
+        self.assertEqual(status, 0)
+        names = [t["name"] for t in json.loads(out)]
+        self.assertIn("rotate_log", names)
+
+
 if __name__ == "__main__":
     unittest.main()
