@@ -53,11 +53,20 @@ def build_parser() -> argparse.ArgumentParser:
     archives.set_defaults(tool="list_archives", params=["log"])
 
     commands.add_parser("tools", help="print the tool definitions (JSON schemas) for the master agent")
+
+    call = commands.add_parser("call", help="call any tool by name with JSON arguments")
+    call.add_argument("tool", help="tool name, see the 'tools' command")
+    call.add_argument("arguments", nargs="?", default="{}", help='JSON object, e.g. {"log": "app"}')
     return parser
 
 
 def tool_call(args) -> tuple:
     """Turn parsed command-line arguments into (tool name, tool arguments)."""
+    if args.command == "call":
+        try:
+            return args.tool, json.loads(args.arguments)
+        except json.JSONDecodeError as err:
+            raise ValueError(f"arguments are not valid JSON: {err}") from None
     # Options the user did not give stay None and are left out, so the tool's defaults apply.
     return args.tool, {p: getattr(args, p) for p in args.params if getattr(args, p) is not None}
 
@@ -67,11 +76,15 @@ def format_result(result: dict) -> str:
 
 
 def main(argv=None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
     if args.command == "tools":
         print(json.dumps(agent_tools.describe_tools(), indent=2))
         return 0
-    name, arguments = tool_call(args)
+    try:
+        name, arguments = tool_call(args)
+    except ValueError as err:
+        parser.error(str(err))  # exits with status 2
     result = agent_tools.call_tool(name, arguments)
     print(json.dumps(result, indent=2) if args.json else format_result(result))
     return 0 if result["status"] == "success" else 1
