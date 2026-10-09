@@ -34,7 +34,9 @@ log_rotator/
         verifier.py      # verify_archive(), verify_copy(), verify_rotation(), watch_log_growth()
         truncator.py     # truncate_log(): ftruncate() on the open descriptor
         locking.py       # rotation_lock(), writer_lock(): flock-based locking
+        archives.py      # list_archives(): rotated archives, newest first
     rotate.py            # rotate_log(): the full safe-rotation pipeline
+    agent_tools.py       # describe_tools(), call_tool(): interface for the master agent
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
