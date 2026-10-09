@@ -177,7 +177,7 @@ def parse_request(text: str, today: date = None) -> dict:
 
 
 def _rotate_arguments(clean, log, label, dry_run, archive_only, no_compress, text) -> dict:
-    if re.search(r"\b(all|every|everything)\b", clean) and log in (None, "all", "every"):
+    if re.search(r"\b(all|every|everything)\b", clean) and log in (None, "all", "every", "everything"):
         raise RotatorError(errors.INVALID_REQUEST,
                            "Rotate one log at a time; name the log (see 'list the logs')",
                            request=text)

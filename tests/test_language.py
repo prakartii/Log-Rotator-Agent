@@ -74,5 +74,18 @@ class RotateRequestTest(unittest.TestCase):
         self.assertEqual(parse("rotate the app log for may")["arguments"]["label"], "2026-05")
 
 
+class RefusedRequestTest(unittest.TestCase):
+    def assertRefused(self, text, message_part):
+        with self.assertRaises(RotatorError) as ctx:
+            parse(text)
+        self.assertEqual(ctx.exception.code, errors.INVALID_REQUEST)
+        self.assertIn(message_part, ctx.exception.message)
+
+    def test_rotate_everything_is_refused(self):
+        for text in ("rotate everything", "rotate all logs", "compress every log"):
+            with self.subTest(text=text):
+                self.assertRefused(text, "one log at a time")
+
+
 if __name__ == "__main__":
     unittest.main()
