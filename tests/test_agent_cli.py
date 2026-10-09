@@ -94,6 +94,16 @@ class RotateCommandTest(CliTestCase):
         self.assertEqual(os.stat(self.log).st_size, 0)
         self.assertEqual(os.stat(self.log).st_ino, inode)
 
+    def test_rotate_options_reach_the_tool(self):
+        status, result = self.run_json("rotate", "apache_error", "--no-compress", "--no-truncate",
+                                       "--label", "2026-09")
+        self.assertEqual(status, 0, result)
+        self.assertFalse(result["compressed"])
+        self.assertFalse(result["truncated"])
+        self.assertTrue(result["archive"].endswith(".log.2026-09." + Path(result["archive"]).name.split(".")[-1]))
+        self.assertEqual(Path(result["archive"]).read_bytes(), self.data)
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
