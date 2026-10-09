@@ -113,6 +113,12 @@ class RotateCommandTest(CliTestCase):
         self.assertIn("1 archive(s)", out)
         self.assertIn("[2026-09]", out)
 
+    def test_outside_path_is_refused(self):
+        status, out = self.run_cli("rotate", "/etc/passwd")
+        self.assertEqual(status, 1)
+        self.assertIn("OUTSIDE_ALLOWED_DIR", out)
+        self.assertIn("The log was not changed.", out)
+
 
 if __name__ == "__main__":
     unittest.main()
