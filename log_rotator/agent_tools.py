@@ -16,7 +16,7 @@ from pathlib import Path
 
 from . import errors
 from .errors import RotatorError
-from .tools import log_info
+from .tools import log_info, processes
 
 TOOLS = {}
 
@@ -121,3 +121,13 @@ def _identify_log(context, log):
 def _get_log_info(context, log=None):
     path = _identify_log(context, log)["log"]
     return log_info.get_log_info(path, allowed_roots=_roots(context))
+
+
+@tool("find_open_handles", "Which processes have the log open (like lsof): pid, command, fd, "
+      "access mode, O_APPEND and offset.", {"log": _LOG_ARG})
+def _find_open_handles(context, log=None):
+    path = _identify_log(context, log)["log"]
+    handles = processes.find_open_handles(path)
+    return errors.success("find_open_handles", log=path, count=len(handles), open_by=handles,
+                          warnings=[f"pid {h['pid']} writes without O_APPEND"
+                                    for h in processes.unsafe_writers(handles)])
