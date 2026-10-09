@@ -100,8 +100,8 @@ _STOP_WORDS = {
     "its", "is", "are", "be", "do", "does", "log", "logs", "file", "files", "in", "on", "at", "with",
     "then", "also", "just", "current", "currently", "active", "if", "from", "so", "give", "get",
     "about", "there", "here", "up", "out", "again", "today", "right", "away", "agent", "hey", "ok",
-    "okay", "go", "ahead", "want", "need", "like", "everything", "need", "some", "space", "disk",
-    "rotated", "rotating", "else", "any", "any", "how", "much", "many",
+    "okay", "go", "ahead", "want", "need", "like", "some", "space", "disk", "rotated", "rotating",
+    "else", "any", "how", "much", "many",
 }
 
 
