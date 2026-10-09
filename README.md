@@ -324,6 +324,21 @@ python3 agent.py archives apache_error              # archives of that log, newe
 continue). Global options: `--json` (print the raw tool result), `--log-dir` and
 `--archive-dir`.
 
+Real output (WSL, 917 KiB log):
+
+```
+$ python3 agent.py rotate apache --label 2026-09
+Rotated /tmp/demo/logs/apache_error.log
+  archive:  /tmp/demo/rotated_logs/apache_error.log.2026-09.2026-10-09T161650.gz (124991 bytes, ratio 0.1331)
+  archived: 938894 bytes (caught up 0, lost 0)
+  inode:    18 -> 18 (preserved)
+  open by: no process
+
+$ python3 agent.py rotate /etc/passwd
+ERROR OUTSIDE_ALLOWED_DIR: /etc/passwd is outside the allowed log directories
+The log was not changed.
+```
+
 ## Demo: the inode stays the same
 
 ```bash
