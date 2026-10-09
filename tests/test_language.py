@@ -93,6 +93,9 @@ class RefusedRequestTest(unittest.TestCase):
     def test_rotate_without_a_log(self):
         self.assertRefused("rotate", "Which log should be rotated?")
 
+    def test_empty_request(self):
+        self.assertRefused("   ", "empty")
+
 
 if __name__ == "__main__":
     unittest.main()
