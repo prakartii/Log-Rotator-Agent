@@ -72,6 +72,11 @@ def _check_arguments(spec: dict, arguments) -> None:
             raise RotatorError(errors.INVALID_REQUEST,
                                f"Argument '{name}' of {spec['name']} must be a {expected}",
                                tool=spec["name"], argument=name)
+        minimum = schema["properties"][name].get("minimum")
+        if minimum is not None and value < minimum:
+            raise RotatorError(errors.INVALID_REQUEST,
+                               f"Argument '{name}' of {spec['name']} must be at least {minimum}",
+                               tool=spec["name"], argument=name)
 
 
 def call_tool(name: str, arguments: dict = None, log_dir=None, archive_dir=None) -> dict:
@@ -143,9 +148,9 @@ def _find_open_handles(context, log=None):
           "dry_run": {"type": "boolean", "description": "validate and report, change nothing"},
           "label": {"type": "string",
                     "description": "tag in the archive name, e.g. '2026-09' (letters, digits, - and _)"},
-          "lock_timeout": {"type": "number",
+          "lock_timeout": {"type": "number", "minimum": 0,
                            "description": "seconds to wait if another rotation of this log is running"},
-          "watch_writer": {"type": "number",
+          "watch_writer": {"type": "number", "minimum": 0,
                            "description": "seconds to watch the writer continue after rotation"},
       })
 def _rotate_log(context, log=None, **options):
