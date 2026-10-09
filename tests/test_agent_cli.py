@@ -106,6 +106,13 @@ class RotateCommandTest(CliTestCase):
         self.assertEqual(Path(result["archive"]).read_bytes(), self.data)
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_archives_after_rotation(self):
+        self.run_cli("rotate", "apache_error", "--label", "2026-09")
+        status, out = self.run_cli("archives", "apache_error")
+        self.assertEqual(status, 0)
+        self.assertIn("1 archive(s)", out)
+        self.assertIn("[2026-09]", out)
+
 
 if __name__ == "__main__":
     unittest.main()
