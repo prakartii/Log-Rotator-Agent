@@ -100,7 +100,9 @@ class RotateCommandTest(CliTestCase):
         self.assertEqual(status, 0, result)
         self.assertFalse(result["compressed"])
         self.assertFalse(result["truncated"])
-        self.assertTrue(result["archive"].endswith(".log.2026-09." + Path(result["archive"]).name.split(".")[-1]))
+        name = Path(result["archive"]).name
+        self.assertTrue(name.startswith("apache_error.log.2026-09."), name)
+        self.assertFalse(name.endswith(".gz"))
         self.assertEqual(Path(result["archive"]).read_bytes(), self.data)
         self.assertEqual(self.log.read_bytes(), self.data)
 
