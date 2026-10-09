@@ -56,6 +56,12 @@ class ListCommandTest(CliTestCase):
         self.assertEqual(result["action"], "list_logs")
         self.assertEqual(result["logs"][0]["size"], len(self.data))
 
+    def test_empty_log_directory(self):
+        self.log.unlink()
+        status, out = self.run_cli("list")
+        self.assertEqual(status, 0)
+        self.assertIn("No logs in", out)
+
 
 if __name__ == "__main__":
     unittest.main()
