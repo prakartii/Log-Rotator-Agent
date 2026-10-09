@@ -195,13 +195,13 @@ def main(argv=None) -> int:
     if args.command == "ask":
         result = language.handle_request(" ".join(args.request), log_dir=args.log_dir,
                                          archive_dir=args.archive_dir)
-        print(json.dumps(result, indent=2) if args.json else format_result(result))
-        return 0 if result["status"] == "success" else 1
-    try:
-        name, arguments = tool_call(args)
-    except ValueError as err:
-        parser.error(str(err))  # exits with status 2
-    result = agent_tools.call_tool(name, arguments, log_dir=args.log_dir, archive_dir=args.archive_dir)
+    else:
+        try:
+            name, arguments = tool_call(args)
+        except ValueError as err:
+            parser.error(str(err))  # exits with status 2
+        result = agent_tools.call_tool(name, arguments, log_dir=args.log_dir,
+                                       archive_dir=args.archive_dir)
     print(json.dumps(result, indent=2) if args.json else format_result(result))
     return 0 if result["status"] == "success" else 1
 
