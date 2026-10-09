@@ -24,6 +24,10 @@ class RotateRequestTest(unittest.TestCase):
     def test_capitals_and_punctuation_are_ignored(self):
         self.assertEqual(parse("Rotate the Apache Error logs.")["arguments"], {"log": "apache error"})
 
+    def test_last_month_becomes_the_archive_label(self):
+        result = parse("Compress last month's nginx access log")
+        self.assertEqual(result["arguments"], {"log": "nginx access", "label": "2026-09"})
+
 
 if __name__ == "__main__":
     unittest.main()
