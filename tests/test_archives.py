@@ -15,6 +15,12 @@ class ParseArchiveNameTest(unittest.TestCase):
             "copy": 0, "compressed": True,
         })
 
+    def test_label_and_copy_suffix(self):
+        parts = parse_archive_name("apache_error.log.2026-09.2026-10-07T195312-2.gz")
+        self.assertEqual(parts["log_name"], "apache_error.log")
+        self.assertEqual(parts["label"], "2026-09")
+        self.assertEqual(parts["copy"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
