@@ -127,6 +127,11 @@ class ToolsAndCallCommandTest(CliTestCase):
         names = [t["name"] for t in json.loads(out)]
         self.assertIn("rotate_log", names)
 
+    def test_call_runs_a_tool_with_json_arguments(self):
+        status, out = self.run_cli("call", "identify_log", '{"log": "apache error"}')
+        self.assertEqual(status, 0)
+        self.assertIn(f"-> {self.log} (matched by alias)", out)
+
 
 if __name__ == "__main__":
     unittest.main()
