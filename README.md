@@ -8,7 +8,8 @@ active log (snapshot → gzip → verify) and then empties the log in place with
 `ftruncate()`. The log is never deleted and recreated, so its inode stays the
 same and the writer process keeps running on its open file descriptor.
 
-> Status: under active development. See the development phases below.
+> Status: all 11 development phases are complete. For the live presentation, follow
+> the step-by-step [demo guide](docs/DEMO.md).
 
 ## Requirements
 
@@ -20,6 +21,8 @@ same and the writer process keeps running on its open file descriptor.
 ```
 agent.py                 # command-line entry point: ask, list, info, who, rotate, archives, tools, call
 writer.py                # simulated long-running process that appends to a log
+docs/
+    DEMO.md              # step-by-step guide for the live demo
 demo/
     inode_demo.py        # presentation demo: same inode before/after, writer keeps running
 log_rotator/
@@ -526,6 +529,9 @@ publishing its archive and `ftruncate()` causes duplicated (never lost) lines.
 python3 -m unittest discover -v
 ```
 
+307 tests, about 25 seconds. They run on Linux (WSL2 works) and start real `writer.py`
+and `agent.py` processes; tests that depend on file permissions are skipped when run as root.
+
 ## Development phases
 
 1. Project structure and simulated log writer ✅
@@ -538,4 +544,4 @@ python3 -m unittest discover -v
 8. Agent tool interface and CLI ✅
 9. Natural-language command handling ✅
 10. Concurrency, writer and permission tests ✅
-11. Documentation and demo guide (next)
+11. Documentation and demo guide ✅
