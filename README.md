@@ -18,7 +18,7 @@ same and the writer process keeps running on its open file descriptor.
 ## Project structure
 
 ```
-agent.py                 # command-line entry point (later phase)
+agent.py                 # command-line entry point: list, info, who, rotate, archives, tools, call
 writer.py                # simulated long-running process that appends to a log
 demo/
     inode_demo.py        # presentation demo: same inode before/after, writer keeps running
