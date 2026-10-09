@@ -25,3 +25,13 @@ def _clean(text: str) -> str:
     text = text.lower().replace("’", "'").replace("‘", "'")
     text = re.sub(r"[?!,;]", " ", text)
     return " ".join(text.split())
+
+
+# Option phrases. Each is removed from the text once recognised, so that what
+# is left over names the log ("compress the nginx log without truncating").
+_DRY_RUN = re.compile(r"\b(dry[ -]?run|what would happen|what happens|simulate|preview|pretend|"
+                      r"without changing anything|don't change anything|do not change anything)\b")
+_ARCHIVE_ONLY = re.compile(r"\b(archive only|only archive|back ?up|keep the log|keep it|"
+                           r"(?:don't|do not|never|without) (?:truncat\w*|empty\w*|clear\w*))\b")
+_NO_COMPRESS = re.compile(r"\b((?:don't|do not|without|no) (?:compress\w*|gzip\w*|zip\w*)|"
+                          r"uncompressed|plain copy)\b")
