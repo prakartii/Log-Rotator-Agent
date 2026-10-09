@@ -90,6 +90,9 @@ class RefusedRequestTest(unittest.TestCase):
         self.assertRefused("delete the apache log", "never deletes logs")
         self.assertRefused("rm logs/app.log", "never deletes logs")
 
+    def test_rotate_without_a_log(self):
+        self.assertRefused("rotate", "Which log should be rotated?")
+
 
 if __name__ == "__main__":
     unittest.main()
