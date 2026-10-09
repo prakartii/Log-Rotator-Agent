@@ -100,6 +100,22 @@ class MultipleWritersTest(StressTestCase):
         self.assertEqual(len({pid for pid, _ in counts}), 3, "lines from all three writers")
         self.assertEveryLineOnce(counts)
 
+    def test_plain_append_writers_never_duplicate_and_report_losses(self):
+        """Writers without flock are not paused: a line can be lost, but only as reported."""
+        for _ in range(3):
+            self.start_writer()
+        lost = 0
+        for _ in range(3):
+            time.sleep(0.3)
+            result = self.rotate()
+            self.assertEqual(result["status"], "success", result)
+            lost += result["bytes_lost"]
+        self.stop_writers()
+        counts = self.line_counts()
+        self.assertEqual([line for line, n in counts.items() if n > 1], [], "lines archived twice")
+        if lost == 0:
+            self.assertEveryLineOnce(counts)
+
 
 if __name__ == "__main__":
     unittest.main()
