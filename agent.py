@@ -178,6 +178,11 @@ def _format_rotate(result):
     return "\n".join(lines)
 
 
+@_formats("identify_log")
+def _format_identify(result):
+    return f"{result['query']!r} -> {result['log']} (matched by {result['matched_by']})"
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
