@@ -165,6 +165,13 @@ class HandleRequestTest(unittest.TestCase):
         with gzip.open(result["archive"], "rb") as f:
             self.assertEqual(f.read(), self.data)
 
+    def test_result_shows_the_interpretation(self):
+        result = self.handle("what would happen if you rotated the nginx access log?")
+        self.assertEqual(result["request"], "what would happen if you rotated the nginx access log?")
+        self.assertEqual(result["interpreted_as"]["explanation"],
+                         "rotate_log(log='nginx access', dry_run=True)")
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
