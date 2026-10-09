@@ -15,13 +15,14 @@ handle_request() - parse_request() + call_tool()
 """
 
 import re
+from datetime import date, timedelta
 
 from . import errors
 from .errors import RotatorError
 
 
 def _clean(text: str) -> str:
-    """Lower-case, unify apostrophes and dashes, collapse spaces."""
+    """Lower-case, unify apostrophes, drop punctuation, collapse spaces."""
     text = text.lower().replace("’", "'").replace("‘", "'")
     text = re.sub(r"[?!,;]", " ", text)
     return " ".join(text.split())
@@ -35,3 +36,11 @@ _ARCHIVE_ONLY = re.compile(r"\b(archive only|only archive|back ?up|keep the log|
                            r"(?:don't|do not|never|without) (?:truncat\w*|empty\w*|clear\w*))\b")
 _NO_COMPRESS = re.compile(r"\b((?:don't|do not|without|no) (?:compress\w*|gzip\w*|zip\w*)|"
                           r"uncompressed|plain copy)\b")
+
+_MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
+           "september", "october", "november", "december"]
+
+
+def _previous_month(today: date) -> str:
+    first = today.replace(day=1)
+    return (first - timedelta(days=1)).strftime("%Y-%m")
