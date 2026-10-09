@@ -12,11 +12,12 @@ call_tool() is the single entry point:
 * the LLM layer never touches files itself, it can only pick a tool.
 """
 
+import os
 from pathlib import Path
 
 from . import errors, rotate
 from .errors import RotatorError
-from .tools import log_info, processes
+from .tools import archives, log_info, processes
 
 TOOLS = {}
 
@@ -150,3 +151,10 @@ def _find_open_handles(context, log=None):
 def _rotate_log(context, log=None, **options):
     return rotate.rotate_log(log, archive_dir=context["archive_dir"], log_dir=context["log_dir"],
                              allowed_roots=_roots(context), **options)
+
+
+@tool("list_archives", "List the rotated archives, newest first; optionally only those of one log.",
+      {"log": _LOG_ARG})
+def _list_archives(context, log=None):
+    log_name = os.path.basename(_identify_log(context, log)["log"]) if log else None
+    return archives.list_archives(context["archive_dir"], log_name=log_name)
