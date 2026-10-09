@@ -70,6 +70,8 @@ class StressTestCase(unittest.TestCase):
         """How often each (writer pid, seq) line appears in all archives plus the live log."""
         data = self.log.read_bytes()
         for archive in sorted(self.archives.iterdir()) if self.archives.exists() else []:
+            if archive.name.startswith("."):
+                continue  # unfinished snapshot or temp archive, not a published archive
             opener = gzip.open if archive.name.endswith(".gz") else open
             with opener(archive, "rb") as f:
                 data += f.read()
