@@ -25,5 +25,17 @@ class DescribeToolsTest(unittest.TestCase):
                 self.assertFalse(spec["input_schema"]["additionalProperties"])
 
 
+class ArgumentCheckTest(unittest.TestCase):
+    def assertInvalid(self, result, message_part):
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
+        self.assertIn(message_part, result["message"])
+
+    def test_unknown_tool(self):
+        result = agent_tools.call_tool("delete_everything")
+        self.assertInvalid(result, "Unknown tool")
+        self.assertIn("rotate_log", result["available_tools"])
+
+
 if __name__ == "__main__":
     unittest.main()
