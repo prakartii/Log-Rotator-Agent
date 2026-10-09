@@ -74,7 +74,26 @@ def tool_call(args) -> tuple:
 
 
 def format_result(result: dict) -> str:
-    return json.dumps(result, indent=2)
+    """Human-readable text for a tool result; unknown results fall back to JSON."""
+    if result["status"] == "error":
+        return _format_error(result)
+    formatter = _FORMATTERS.get(result.get("action"))
+    return formatter(result) if formatter else json.dumps(result, indent=2)
+
+
+def _format_error(result: dict) -> str:
+    lines = [f"ERROR {result['error_code']}: {result['message']}"]
+    if result.get("log_unchanged"):
+        lines.append("The log was not changed.")
+    elif result.get("truncated") and result.get("archive"):
+        lines.append(f"The log WAS truncated; the old data is in {result['archive']}")
+    for key in ("candidates", "available_logs", "available_tools"):
+        if result.get(key):
+            lines.append(f"{key.replace('_', ' ').capitalize()}: {', '.join(result[key])}")
+    return "\n".join(lines)
+
+
+_FORMATTERS = {}
 
 
 def main(argv=None) -> int:
