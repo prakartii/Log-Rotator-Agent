@@ -63,5 +63,29 @@ class ArgumentCheckTest(unittest.TestCase):
         self.assertInvalid(result, "JSON object")
 
 
+class ToolCallTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        self.logs = base / "logs"
+        self.archives = base / "rotated_logs"
+        self.logs.mkdir()
+        self.log = self.logs / "apache_error.log"
+        self.data = b"".join(f"[error] request {i} failed\n".encode() for i in range(1000))
+        self.log.write_bytes(self.data)
+        (self.logs / "nginx_access.log").write_bytes(b"GET /\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def call(self, name, arguments=None):
+        return agent_tools.call_tool(name, arguments, log_dir=self.logs, archive_dir=self.archives)
+
+    def test_list_logs(self):
+        result = self.call("list_logs")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual([log["name"] for log in result["logs"]], ["apache_error.log", "nginx_access.log"])
+
+
 if __name__ == "__main__":
     unittest.main()
