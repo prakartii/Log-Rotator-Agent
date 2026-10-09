@@ -181,10 +181,11 @@ def _rotate_arguments(clean, log, label, dry_run, archive_only, no_compress, tex
     if re.search(r"\b(all|every|everything)\b", clean) and log in (None, "all", "every", "everything"):
         raise RotatorError(errors.INVALID_REQUEST,
                            "Rotate one log at a time; name the log (see 'list the logs')",
+                           needs_log=True,
                            request=text)
     if log is None:
         raise RotatorError(errors.INVALID_REQUEST, "Which log should be rotated? Name it, e.g. "
-                           "'rotate the apache error log'", request=text)
+                           "'rotate the apache error log'", request=text, needs_log=True)
     arguments = {"log": log}
     if dry_run:
         arguments["dry_run"] = True
@@ -219,7 +220,7 @@ def handle_request(text: str, log_dir=None, archive_dir=None, today: date = None
         parsed = parse_request(text, today=today)
     except RotatorError as err:
         result = err.to_dict(action="handle_request")
-        if "Which log" in err.message or "one log at a time" in err.message:
+        if err.details.get("needs_log"):  # tell the user which logs there are
             listing = call_tool("list_logs", log_dir=log_dir)
             if listing["status"] == "success":
                 result["available_logs"] = [log["name"] for log in listing["logs"]]
