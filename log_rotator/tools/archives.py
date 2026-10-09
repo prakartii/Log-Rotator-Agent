@@ -72,3 +72,42 @@ def list_archives(archive_dir=None, log_name: str = None) -> dict:
     return errors.success("list_archives", archive_dir=str(archive_dir), log_name=log_name,
                           count=len(archives), total_size=sum(a["size"] for a in archives),
                           archives=archives)
+
+
+# Temp files of a rotation: ".<archive name>.<pid>.snapshot" and ".<archive name>.<pid>.tmp".
+_TEMP_RE = re.compile(r"^\.(?P<name>.+)\.(?P<pid>\d+)\.(?:snapshot|tmp)$")
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)  # signal 0 only checks that the process exists
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, but belongs to another user
+    return True
+
+
+def remove_stale_temp_files(archive_dir=None) -> list:
+    """Delete snapshots and temp archives left behind by rotators that were killed.
+
+    A normal failure cleans up its own temp files, but kill -9 gives the process
+    no chance to. The pid in the file name tells whether the rotator still runs;
+    files of running processes (e.g. rotating another log right now) are kept.
+    """
+    archive_dir = Path(archive_dir or config.ARCHIVE_DIR)
+    removed = []
+    try:
+        entries = list(os.scandir(archive_dir))
+    except FileNotFoundError:
+        return removed
+    for entry in entries:
+        match = _TEMP_RE.match(entry.name)
+        if not match or not entry.is_file(follow_symlinks=False) or _pid_alive(int(match["pid"])):
+            continue
+        try:
+            os.unlink(entry.path)
+            removed.append(entry.name)
+        except FileNotFoundError:
+            pass
+    return sorted(removed)
