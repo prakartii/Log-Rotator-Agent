@@ -387,6 +387,23 @@ python3 agent.py ask "show the archives of the nginx access log"
 From Python: `handle_request("rotate the apache error logs")`, or only
 `parse_request(text)` to see the tool call without running it.
 
+The rules are plain keyword rules, not an LLM. A misunderstood request could
+truncate the wrong log, so the result must be predictable and testable. Each
+request becomes **exactly one** tool call:
+
+| Words in the request | Tool call |
+|---|---|
+| rotate, compress, truncate, shrink, clean up, archive, free space | `rotate_log` |
+| dry run, what would happen, simulate, preview | `rotate_log(dry_run=True)` |
+| archive only, back up, keep the log, without truncating | `rotate_log(truncate=False)` |
+| without compression, uncompressed, don't gzip | `rotate_log(compress=False)` |
+| make sure the writer keeps running | `rotate_log(watch_writer=3)` |
+| wait if another rotation is running | `rotate_log(lock_timeout=10)` |
+| who, which process, writing to, lsof | `find_open_handles` |
+| archives, rotated logs, history, backups | `list_archives` |
+| list / show / which ... logs | `list_logs` |
+| info, size, how big, inode, status (or just a log name) | `get_log_info` |
+
 ## Demo: the inode stays the same
 
 ```bash
