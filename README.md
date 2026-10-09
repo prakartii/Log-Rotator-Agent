@@ -404,6 +404,17 @@ request becomes **exactly one** tool call:
 | list / show / which ... logs | `list_logs` |
 | info, size, how big, inode, status (or just a log name) | `get_log_info` |
 
+The words that are left over name the log ("the nginx access log" -> `nginx access`),
+which `identify_log()` then resolves and validates like any other request. A path
+in the request (`logs/app.log`) is used as given and must still be inside `logs/`.
+
+**Dates.** "last month" does not pick old lines out of the log: the agent always
+archives the whole current log. It names the archive after the month instead:
+on 2026-10-09, "compress last month's nginx log" writes
+`nginx_access.log.2026-09.<time>.gz`. "this month", month names ("for september",
+the most recent September) and `2026-09` work the same way, and so do explicit
+labels ("label it nightly").
+
 ## Demo: the inode stays the same
 
 ```bash
