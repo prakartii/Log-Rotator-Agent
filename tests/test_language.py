@@ -86,6 +86,10 @@ class RefusedRequestTest(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertRefused(text, "one log at a time")
 
+    def test_delete_is_refused(self):
+        self.assertRefused("delete the apache log", "never deletes logs")
+        self.assertRefused("rm logs/app.log", "never deletes logs")
+
 
 if __name__ == "__main__":
     unittest.main()
