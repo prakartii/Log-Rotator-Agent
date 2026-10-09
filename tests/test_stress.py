@@ -253,6 +253,17 @@ class PermissionTest(StressTestCase):
         self.assertUnchanged(result, errors.PERMISSION_DENIED)
         self.assertFalse(self.archives.exists())
 
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses file permissions")
+    def test_unsearchable_log_directory(self):
+        os.chmod(self.logs, 0o000)
+        try:
+            result = self.rotate()
+        finally:
+            os.chmod(self.logs, 0o755)
+        self.assertEqual(result["status"], "error", result)
+        self.assertTrue(result["log_unchanged"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
