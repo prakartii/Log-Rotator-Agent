@@ -165,7 +165,12 @@ repeats until the log stops growing (at most `MAX_CATCHUP_ROUNDS`). If appending
 fails, the archive is rolled back with `ftruncate()` to its last verified size.
 
 The result reports `caught_up_bytes` and `bytes_lost` (bytes that arrived in the
-microseconds between the final check and `ftruncate()`, normally 0). In a live test
+microseconds between the final check and `ftruncate()`, normally 0). For writers that
+do not use `flock()`, `bytes_lost` is a **lower bound**: a write that lands between
+the last `fstat()` and `ftruncate()` is gone before anyone can see it, and no system
+call truncates and reports the size in one atomic step. The phase 10 stress test
+(three such writers, three rotations) occasionally loses one line this way while
+reporting 0. Cooperative writers close this gap completely (see below). In a live test
 with `writer.py` at 500 lines/s, every line number appears exactly once across the
 archive and the live log.
 
