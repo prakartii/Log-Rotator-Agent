@@ -114,3 +114,10 @@ def _list_logs(context):
       {"log": _LOG_ARG}, required=["log"])
 def _identify_log(context, log):
     return log_info.identify_log(log, log_dir=context["log_dir"], allowed_roots=_roots(context))
+
+
+@tool("get_log_info", "Inode, size, disk usage, permissions, owner, timestamps and open handles "
+      "of one log.", {"log": _LOG_ARG})
+def _get_log_info(context, log=None):
+    path = _identify_log(context, log)["log"]
+    return log_info.get_log_info(path, allowed_roots=_roots(context))
