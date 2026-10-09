@@ -308,6 +308,17 @@ writing the moment the log was emptied. Successful results also contain
 `rotation_checks` (all `true`), and with `watch_writer` also `writer_continues`
 and `growth` samples.
 
+## Command-line interface: `agent.py`
+
+```bash
+python3 agent.py list                               # active logs with size and inode
+python3 agent.py info "the apache error logs"       # inode, size, holes, owner, open handles
+python3 agent.py who apache_error                   # which processes have the log open
+python3 agent.py rotate apache_error --dry-run      # what would happen, nothing changes
+python3 agent.py rotate apache_error                # archive + gzip + verify + ftruncate
+python3 agent.py archives apache_error              # archives of that log, newest first
+```
+
 ## Demo: the inode stays the same
 
 ```bash
