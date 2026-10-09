@@ -50,6 +50,10 @@ class ArgumentCheckTest(unittest.TestCase):
         self.assertInvalid(result, "must be a boolean")
         self.assertEqual(result["argument"], "dry_run")
 
+    def test_boolean_is_not_a_number(self):
+        result = agent_tools.call_tool("rotate_log", {"lock_timeout": True})
+        self.assertInvalid(result, "must be a number")
+
 
 if __name__ == "__main__":
     unittest.main()
