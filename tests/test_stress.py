@@ -213,5 +213,31 @@ class NonAppendWriterTest(StressTestCase):
         self.assertIn(f"pid {writer.pid} writes without O_APPEND", " ".join(info["warnings"]))
 
 
+class PermissionTest(StressTestCase):
+    def setUp(self):
+        super().setUp()
+        self.data = b"[error] something failed\n" * 2000
+        self.log.write_bytes(self.data)
+
+    def tearDown(self):
+        for path in (self.logs, self.archives, self.log):
+            if path.exists():
+                os.chmod(path, 0o755 if path.is_dir() else 0o644)
+        super().tearDown()
+
+    def assertUnchanged(self, result, code):
+        self.assertEqual(result["status"], "error", result)
+        self.assertEqual(result["error_code"], code)
+        self.assertTrue(result["log_unchanged"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
+    def test_archive_directory_that_is_a_file(self):
+        self.archives.write_bytes(b"not a directory")
+        result = self.rotate()
+        self.assertEqual(result["status"], "error", result)
+        self.assertTrue(result["log_unchanged"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
+
 if __name__ == "__main__":
     unittest.main()
