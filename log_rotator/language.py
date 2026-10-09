@@ -44,3 +44,33 @@ _MONTHS = ["january", "february", "march", "april", "may", "june", "july", "augu
 def _previous_month(today: date) -> str:
     first = today.replace(day=1)
     return (first - timedelta(days=1)).strftime("%Y-%m")
+
+
+def _find_label(text: str, today: date):
+    """Return (label, matched phrase) for the archive name, or (None, None).
+
+    "last month"      -> previous calendar month, e.g. "2026-09"
+    "this month"      -> current month
+    "for september"   -> the most recent September that has started
+    "label nightly"   -> "nightly" (explicit labels)
+    "2026-09"         -> "2026-09"
+    The log itself is always rotated now; the label only names the archive.
+    """
+    match = re.search(r"\b(last|previous) month(?:'s)?\b", text)
+    if match:
+        return _previous_month(today), match.group(0)
+    match = re.search(r"\bthis month(?:'s)?\b", text)
+    if match:
+        return today.strftime("%Y-%m"), match.group(0)
+    match = re.search(r"\b(?:label(?:led)?|tag(?:ged)?|named?)(?: it)?(?: as)? ([a-z0-9_-]+)\b", text)
+    if match:
+        return match.group(1), match.group(0)
+    match = re.search(r"\b(\d{4}-\d{2})(?:'s)?\b", text)
+    if match:
+        return match.group(1), match.group(0)
+    match = re.search(r"\b(?:for |from |of )?(" + "|".join(_MONTHS) + r")(?:'s)?\b", text)
+    if match:
+        month = _MONTHS.index(match.group(1)) + 1
+        year = today.year if month <= today.month else today.year - 1
+        return f"{year}-{month:02d}", match.group(0)
+    return None, None
