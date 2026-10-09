@@ -339,6 +339,10 @@ ERROR OUTSIDE_ALLOWED_DIR: /etc/passwd is outside the allowed log directories
 The log was not changed.
 ```
 
+Exit status: `0` success, `1` the tool returned an error (the error code is printed),
+`2` invalid command line. The master agent can therefore run `agent.py --json ...`
+as a program, check the exit status and parse stdout.
+
 ## Demo: the inode stays the same
 
 ```bash
