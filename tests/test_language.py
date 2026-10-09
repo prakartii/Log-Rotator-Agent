@@ -28,6 +28,10 @@ class RotateRequestTest(unittest.TestCase):
         result = parse("Compress last month's nginx access log")
         self.assertEqual(result["arguments"], {"log": "nginx access", "label": "2026-09"})
 
+    def test_last_month_in_january_is_december(self):
+        result = parse_request("rotate last month's app log", today=date(2027, 1, 15))
+        self.assertEqual(result["arguments"]["label"], "2026-12")
+
 
 if __name__ == "__main__":
     unittest.main()
