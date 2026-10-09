@@ -122,13 +122,13 @@ class MultipleWritersTest(StressTestCase):
         inode = os.stat(self.log).st_ino
         result = self.rotate()
         self.assertEqual(result["status"], "success", result)
-        self.assertEqual(sorted(result["rotation_checks"].keys()) and
-                         sorted(h["pid"] for h in result["open_by"]), sorted(w.pid for w in writers))
+        self.assertEqual(sorted(h["pid"] for h in result["open_by"]), sorted(w.pid for w in writers))
         self.assertTrue(result["rotation_checks"]["writers_attached"])
         time.sleep(0.2)
         for writer in writers:
             self.assertIsNone(writer.poll(), "writer must keep running")
-            self.assertEqual(os.stat(f"/proc/{writer.pid}/fd/3").st_ino, inode)
+        for handle in result["open_by"]:
+            self.assertEqual(os.stat(f"/proc/{handle['pid']}/fd/{handle['fd']}").st_ino, inode)
 
 
 if __name__ == "__main__":
