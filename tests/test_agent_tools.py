@@ -36,6 +36,10 @@ class ArgumentCheckTest(unittest.TestCase):
         self.assertInvalid(result, "Unknown tool")
         self.assertIn("rotate_log", result["available_tools"])
 
+    def test_unknown_argument(self):
+        result = agent_tools.call_tool("rotate_log", {"log": "app", "path": "/etc/passwd"})
+        self.assertInvalid(result, "Unknown argument(s) for rotate_log: path")
+
 
 if __name__ == "__main__":
     unittest.main()
