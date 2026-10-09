@@ -32,6 +32,10 @@ class RotateRequestTest(unittest.TestCase):
         result = parse_request("rotate last month's app log", today=date(2027, 1, 15))
         self.assertEqual(result["arguments"]["label"], "2026-12")
 
+    def test_month_name_label(self):
+        self.assertEqual(parse("rotate the app log for september")["arguments"]["label"], "2026-09")
+        self.assertEqual(parse("rotate the app log for november")["arguments"]["label"], "2025-11")
+
 
 if __name__ == "__main__":
     unittest.main()
