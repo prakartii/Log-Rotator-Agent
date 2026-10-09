@@ -86,6 +86,14 @@ class RotateCommandTest(CliTestCase):
         self.assertEqual(self.log.read_bytes(), self.data)
         self.assertFalse(self.archives.exists())
 
+    def test_rotate_keeps_the_inode(self):
+        inode = os.stat(self.log).st_ino
+        status, out = self.run_cli("rotate", "apache error")
+        self.assertEqual(status, 0, out)
+        self.assertIn(f"inode:    {inode} -> {inode} (preserved)", out)
+        self.assertEqual(os.stat(self.log).st_size, 0)
+        self.assertEqual(os.stat(self.log).st_ino, inode)
+
 
 if __name__ == "__main__":
     unittest.main()
