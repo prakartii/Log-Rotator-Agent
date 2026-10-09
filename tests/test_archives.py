@@ -21,6 +21,11 @@ class ParseArchiveNameTest(unittest.TestCase):
         self.assertEqual(parts["label"], "2026-09")
         self.assertEqual(parts["copy"], 2)
 
+    def test_uncompressed_archive(self):
+        parts = parse_archive_name("app.log.2026-10-07T195312")
+        self.assertEqual(parts["log_name"], "app.log")
+        self.assertFalse(parts["compressed"])
+
 
 if __name__ == "__main__":
     unittest.main()
