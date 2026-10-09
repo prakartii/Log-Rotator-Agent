@@ -96,6 +96,13 @@ class OtherRequestTest(unittest.TestCase):
         result = parse("show rotated logs")
         self.assertEqual((result["tool"], result["arguments"]), ("list_archives", {}))
 
+    def test_info_requests(self):
+        for text in ("how big is the apache error log?", "show info about the apache error log",
+                     "apache error"):
+            with self.subTest(text=text):
+                self.assertEqual(parse(text)["tool"], "get_log_info")
+                self.assertEqual(parse(text)["arguments"], {"log": "apache error"})
+
 
 class RefusedRequestTest(unittest.TestCase):
     def assertRefused(self, text, message_part):
