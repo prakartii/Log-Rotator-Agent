@@ -22,13 +22,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="print the raw JSON result")
     commands = parser.add_subparsers(dest="command", required=True, metavar="command")
 
-    commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs")
+    commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs", params=[])
+
+    info = commands.add_parser("info", help="inode, size, permissions and open handles of a log")
+    info.add_argument("log", nargs="?", help="log name, alias or path (default: apache_error.log)")
+    info.set_defaults(tool="get_log_info", params=["log"])
     return parser
 
 
 def tool_call(args) -> tuple:
     """Turn parsed command-line arguments into (tool name, tool arguments)."""
-    return args.tool, {}
+    # Options the user did not give stay None and are left out, so the tool's defaults apply.
+    return args.tool, {p: getattr(args, p) for p in args.params if getattr(args, p) is not None}
 
 
 def format_result(result: dict) -> str:
