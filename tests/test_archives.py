@@ -32,5 +32,28 @@ class ParseArchiveNameTest(unittest.TestCase):
                 self.assertIsNone(parse_archive_name(name))
 
 
+class ListArchivesTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def make(self, name, data=b"x"):
+        (self.dir / name).write_bytes(data)
+
+    def test_lists_newest_first(self):
+        self.make("apache_error.log.2026-10-01T100000.gz")
+        self.make("apache_error.log.2026-10-07T195312.gz", b"abc")
+        result = list_archives(self.dir)
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["count"], 2)
+        self.assertEqual([a["name"] for a in result["archives"]],
+                         ["apache_error.log.2026-10-07T195312.gz", "apache_error.log.2026-10-01T100000.gz"])
+        self.assertEqual(result["archives"][0]["size"], 3)
+        self.assertEqual(result["total_size"], 4)
+
+
 if __name__ == "__main__":
     unittest.main()
