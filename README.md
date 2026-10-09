@@ -440,7 +440,7 @@ python3 -m unittest discover -v
 5. Safe `ftruncate`-based rotation ✅
 6. Inode preservation and rotation verification ✅
 7. File locking for concurrent rotation ✅
-8. Agent tool interface and CLI (next)
-9. Natural-language command handling
+8. Agent tool interface and CLI ✅
+9. Natural-language command handling (next)
 10. Concurrency, writer and permission tests
 11. Documentation and demo guide
