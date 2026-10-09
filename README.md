@@ -366,6 +366,13 @@ from the shell with `python3 agent.py call rotate_log '{"log": "apache error"}'`
 | `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `lock_timeout`, `watch_writer` |
 | `list_archives` | `log` |
 
+`call_tool()` checks every call against the tool's JSON schema **before** anything
+runs: unknown tools, unknown or missing arguments, wrong types (`"yes"` for a
+boolean, `true` for a number) and negative timeouts all return `INVALID_REQUEST`.
+Directories are not tool arguments, so a request can never point the agent at a
+different folder. Like every tool, `call_tool()` never raises for expected errors;
+it returns `{"status": "error", "error_code": ...}`.
+
 ## Demo: the inode stays the same
 
 ```bash
