@@ -63,5 +63,14 @@ class ListCommandTest(CliTestCase):
         self.assertIn("No logs in", out)
 
 
+class InfoCommandTest(CliTestCase):
+    def test_info_shows_inode_and_size(self):
+        status, out = self.run_cli("info", "the apache error logs")
+        self.assertEqual(status, 0)
+        self.assertIn(f"inode {os.stat(self.log).st_ino}", out)
+        self.assertIn(f"({len(self.data)} bytes)", out)
+        self.assertIn("open by: no process", out)
+
+
 if __name__ == "__main__":
     unittest.main()
