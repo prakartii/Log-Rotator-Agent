@@ -51,6 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
     archives = commands.add_parser("archives", help="list rotated archives, newest first")
     archives.add_argument("log", nargs="?", help="only archives of this log")
     archives.set_defaults(tool="list_archives", params=["log"])
+
+    commands.add_parser("tools", help="print the tool definitions (JSON schemas) for the master agent")
     return parser
 
 
@@ -66,6 +68,9 @@ def format_result(result: dict) -> str:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "tools":
+        print(json.dumps(agent_tools.describe_tools(), indent=2))
+        return 0
     name, arguments = tool_call(args)
     result = agent_tools.call_tool(name, arguments)
     print(json.dumps(result, indent=2) if args.json else format_result(result))
