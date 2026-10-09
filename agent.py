@@ -89,6 +89,9 @@ def format_result(result: dict) -> str:
 
 def _format_error(result: dict) -> str:
     lines = [f"ERROR {result['error_code']}: {result['message']}"]
+    if result.get("locked_by_pid"):
+        lines.append(f"The lock is held by pid {result['locked_by_pid']}; "
+                     f"retry with --lock-timeout SECONDS to wait for it.")
     if result.get("log_unchanged"):
         lines.append("The log was not changed.")
     elif result.get("truncated") and result.get("archive"):

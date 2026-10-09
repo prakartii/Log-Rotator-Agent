@@ -529,7 +529,7 @@ publishing its archive and `ftruncate()` causes duplicated (never lost) lines.
 python3 -m unittest discover -v
 ```
 
-307 tests, about 25 seconds. They run on Linux (WSL2 works) and start real `writer.py`
+308 tests, about 25 seconds. They run on Linux (WSL2 works) and start real `writer.py`
 and `agent.py` processes; tests that depend on file permissions are skipped when run as root.
 
 ## Development phases

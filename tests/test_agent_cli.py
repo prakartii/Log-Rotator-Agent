@@ -119,6 +119,14 @@ class RotateCommandTest(CliTestCase):
         self.assertIn("OUTSIDE_ALLOWED_DIR", out)
         self.assertIn("The log was not changed.", out)
 
+    def test_rotation_in_progress_names_the_lock_holder(self):
+        result = {"status": "error", "error_code": "ROTATION_IN_PROGRESS",
+                  "message": "Another rotation is already running",
+                  "locked_by_pid": 4242, "log_unchanged": True}
+        out = agent.format_result(result)
+        self.assertIn("held by pid 4242", out)
+        self.assertIn("The log was not changed.", out)
+
 
 class ToolsAndCallCommandTest(CliTestCase):
     def test_tools_prints_schemas(self):
