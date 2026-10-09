@@ -102,7 +102,7 @@ _STOP_WORDS = {
     "then", "also", "just", "current", "currently", "active", "if", "from", "so", "give", "get",
     "about", "there", "here", "up", "out", "again", "today", "right", "away", "agent", "hey", "ok",
     "okay", "go", "ahead", "want", "need", "like", "some", "space", "disk", "rotated", "rotating",
-    "else", "any", "how", "much", "many",
+    "else", "any", "how", "much", "many", "has", "have", "open", "opened", "let",
 }
 
 

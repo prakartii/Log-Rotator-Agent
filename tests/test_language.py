@@ -86,6 +86,10 @@ class OtherRequestTest(unittest.TestCase):
         self.assertEqual(result["tool"], "find_open_handles")
         self.assertEqual(result["arguments"], {"log": "apache error"})
 
+    def test_which_process_has_it_open(self):
+        result = parse("which process has app.log open")
+        self.assertEqual(result["arguments"], {"log": "app.log"})
+
 
 class RefusedRequestTest(unittest.TestCase):
     def assertRefused(self, text, message_part):
