@@ -68,3 +68,24 @@ def _check_arguments(spec: dict, arguments) -> None:
             raise RotatorError(errors.INVALID_REQUEST,
                                f"Argument '{name}' of {spec['name']} must be a {expected}",
                                tool=spec["name"], argument=name)
+
+
+def call_tool(name: str, arguments: dict = None, log_dir=None, archive_dir=None) -> dict:
+    """Run one tool and return its structured result. Never raises for expected errors.
+
+    log_dir / archive_dir override the configured directories (used by the
+    CLI's --log-dir and by the tests); they are not tool arguments, so the
+    master agent cannot point the agent at a different directory.
+    """
+    spec = TOOLS.get(name)
+    if spec is None:
+        return RotatorError(errors.INVALID_REQUEST, f"Unknown tool: {name!r}",
+                            tool=name, available_tools=sorted(TOOLS)).to_dict(action="call_tool")
+    try:
+        _check_arguments(spec, arguments)
+        context = {"log_dir": log_dir, "archive_dir": archive_dir}
+        return spec["function"](context, **(arguments or {}))
+    except RotatorError as err:
+        return err.to_dict(action=name)
+    except OSError as err:
+        return errors.from_os_error(err).to_dict(action=name)
