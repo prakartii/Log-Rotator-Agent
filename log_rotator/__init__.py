@@ -6,12 +6,21 @@ ftruncate() *in place*, so its inode and every open file descriptor that a
 writer process holds remain valid. The active log is never deleted.
 
 Package layout:
-    config.py   - directories, allowed roots and known log names
-    tools/      - small, controlled OS-level operations (one concern each)
+    config.py      - directories, allowed roots and known log names
+    tools/         - small, controlled OS-level operations (one concern each)
+    rotate.py      - the safe rotation pipeline
+    agent_tools.py - the tool interface for the master/orchestrator agent
 
-The public interface for the master/orchestrator agent is exported from
-this module as it is implemented.
+The master agent only needs two functions:
+
+    from log_rotator import describe_tools, call_tool
+    describe_tools()                                    # tool names + JSON schemas
+    call_tool("rotate_log", {"log": "apache error"})   # -> structured result dict
 """
 
 __version__ = "0.1.0"
 AGENT_NAME = "log_rotator"
+
+from .agent_tools import call_tool, describe_tools  # noqa: E402
+
+__all__ = ["AGENT_NAME", "call_tool", "describe_tools"]
