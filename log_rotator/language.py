@@ -168,9 +168,8 @@ def parse_request(text: str, today: date = None) -> dict:
         tool, arguments = "list_logs", {}
     elif log is not None:
         # No known verb: "the apache log?" -> describe it. Only a guess, see handle_request().
-        parsed = {"tool": "get_log_info", "arguments": {"log": log},
-                  "explanation": _explain("get_log_info", {"log": log}), "guessed": True}
-        return parsed
+        return {"tool": "get_log_info", "arguments": {"log": log},
+                "explanation": _explain("get_log_info", {"log": log}), "guessed": True}
     else:
         raise _not_understood(text)
     return {"tool": tool, "arguments": arguments, "explanation": _explain(tool, arguments)}
@@ -190,8 +189,7 @@ def _rotate_arguments(clean, log, label, dry_run, archive_only, no_compress, tex
     if re.search(r"\b(all|every|everything)\b", clean) and log in (None, "all", "every", "everything"):
         raise RotatorError(errors.INVALID_REQUEST,
                            "Rotate one log at a time; name the log (see 'list the logs')",
-                           needs_log=True,
-                           request=text)
+                           request=text, needs_log=True)
     if log is None:
         raise RotatorError(errors.INVALID_REQUEST, "Which log should be rotated? Name it, e.g. "
                            "'rotate the apache error log'", request=text, needs_log=True)
@@ -237,7 +235,6 @@ def handle_request(text: str, log_dir=None, archive_dir=None, today: date = None
     result = call_tool(parsed["tool"], parsed["arguments"], log_dir=log_dir, archive_dir=archive_dir)
     if parsed.get("guessed") and result.get("error_code") == errors.LOG_NOT_FOUND:
         # The words were neither a command nor a log name ("make me a sandwich").
-        result = {**_not_understood(text).to_dict(action="handle_request"),
-                  "available_logs": result.get("available_logs", [])}
-        return result
+        return {**_not_understood(text).to_dict(action="handle_request"),
+                "available_logs": result.get("available_logs", [])}
     return {**result, "request": text, "interpreted_as": parsed}
