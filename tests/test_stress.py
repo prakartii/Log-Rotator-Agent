@@ -264,6 +264,12 @@ class PermissionTest(StressTestCase):
         self.assertTrue(result["log_unchanged"])
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_archives_are_not_world_readable(self):
+        result = self.rotate()
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(os.stat(result["archive"]).st_mode & 0o007, 0, "archive readable by others")
+        self.assertEqual(os.stat(self.archives).st_mode & 0o007, 0, "archive dir open to others")
+
 
 if __name__ == "__main__":
     unittest.main()
