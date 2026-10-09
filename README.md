@@ -235,7 +235,7 @@ finishes but adds a warning and reports `"writer_lock": {"acquired": false}`.
 | verification fails (corrupt / wrong content) | no | **removed** (not trustworthy) |
 | truncation fails | no | kept (it is verified) |
 | post-rotation check fails | **yes** | kept, and its path is in the error result |
-| rotator killed (`kill -9`) before `ftruncate()` | no | a finished archive may exist; the next rotation archives those lines again (duplicates, never loss) |
+| rotator killed (`kill -9`) before `ftruncate()` | no | a finished archive may exist; the next rotation archives those lines again (duplicates, never loss) and deletes the dead rotator's hidden temp files |
 | rotator killed after `ftruncate()` | yes | complete and verified |
 
 ### Verifying the rotation itself
@@ -498,6 +498,27 @@ python3 writer.py --cooperative            # shared flock per write: rotation ne
 Each status line shows the descriptor's offset, the file size, the inode and
 the link count, so you can see from the writer's own terminal what happens
 to its file during rotation.
+## Stress tests: concurrency, writers and permissions
+
+`tests/test_stress.py` runs real processes against one log and then checks every
+line by `(writer pid, seq)` across all archives and the live log:
+
+| Scenario | Expected result |
+|---|---|
+| 3 `writer.py --cooperative` processes, 3 rotations | every line exactly once, `bytes_lost` = 0 |
+| 3 plain `O_APPEND` writers, 3 rotations | no line archived twice, writers keep running (a line may be lost, see `bytes_lost`) |
+| 3 writers, 1 rotation | all writers still attached to the same inode (`/proc/<pid>/fd`) |
+| 4 `agent.py rotate --lock-timeout 30` processes at once | all succeed one after another, 4 archives, every line once |
+| 4 `agent.py rotate` processes without timeout | each either succeeds or gets `ROTATION_IN_PROGRESS` with the log unchanged |
+| apache log locked, nginx log rotated | succeeds: the lock is per log |
+| writer without `O_APPEND` | warning, hole of zeros at the start, `get_log_info` reports `sparse` |
+| rotator `kill -9`ed at 50 / 200 / 400 ms, then rotated again | no line lost, no stale lock, temp files cleaned up |
+| archive path is a file / archive dir read-only / log write-only / log dir `chmod 000` | error, log unchanged |
+| any rotation | archives and `rotated_logs/` not world-readable, log mode kept |
+
+Two honest limits found by these tests are documented above: `bytes_lost` is only a
+lower bound for writers that do not use `flock()`, and a rotator killed between
+publishing its archive and `ftruncate()` causes duplicated (never lost) lines.
 
 ## Running the tests
 
@@ -516,5 +537,5 @@ python3 -m unittest discover -v
 7. File locking for concurrent rotation ✅
 8. Agent tool interface and CLI ✅
 9. Natural-language command handling ✅
-10. Concurrency, writer and permission tests (next)
-11. Documentation and demo guide
+10. Concurrency, writer and permission tests ✅
+11. Documentation and demo guide (next)

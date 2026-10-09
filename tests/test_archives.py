@@ -1,11 +1,13 @@
 """Tests for listing rotated archives (log_rotator/tools/archives.py)."""
 
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from log_rotator.tools.archives import list_archives, parse_archive_name
+from log_rotator.tools.archives import list_archives, parse_archive_name, remove_stale_temp_files
 
 
 class ParseArchiveNameTest(unittest.TestCase):
@@ -71,6 +73,39 @@ class ListArchivesTest(unittest.TestCase):
         result = list_archives(self.dir / "never_created")
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["archives"], [])
+
+
+class StaleTempFilesTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def dead_pid(self):
+        proc = subprocess.Popen([sys.executable, "-c", "pass"])
+        proc.wait()
+        return proc.pid
+
+    def test_files_of_dead_rotators_are_removed(self):
+        dead = self.dead_pid()
+        names = [f".app.log.2026-10-09T100000.gz.{dead}.snapshot", f".app.log.2026-10-09T100000.gz.{dead}.tmp"]
+        for name in names:
+            (self.dir / name).write_bytes(b"partial")
+        self.assertEqual(remove_stale_temp_files(self.dir), sorted(names))
+        self.assertEqual(list(self.dir.iterdir()), [])
+
+    def test_files_of_running_rotators_and_archives_are_kept(self):
+        keep = [f".app.log.2026-10-09T100000.gz.{os.getpid()}.snapshot", "app.log.2026-10-09T100000.gz",
+                ".app.log.rotate.lock"]
+        for name in keep:
+            (self.dir / name).write_bytes(b"x")
+        self.assertEqual(remove_stale_temp_files(self.dir), [])
+        self.assertEqual(sorted(p.name for p in self.dir.iterdir()), sorted(keep))
+
+    def test_missing_directory(self):
+        self.assertEqual(remove_stale_temp_files(self.dir / "missing"), [])
 
 
 if __name__ == "__main__":

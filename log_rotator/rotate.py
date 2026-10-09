@@ -30,7 +30,7 @@ from pathlib import Path
 
 from . import config, errors
 from .errors import RotatorError
-from .tools import compressor, locking, snapshot, truncator, verifier
+from .tools import archives, compressor, locking, snapshot, truncator, verifier
 from .tools.log_info import human_size, identify_log
 from .tools.processes import find_open_handles, unsafe_writers
 from .tools.safety import open_validated
@@ -119,6 +119,10 @@ def rotate_log(log=None, archive_dir=None, compress=True, truncate=True, dry_run
             return {"status": "success", **info, "steps": steps.items}
 
         archive_dir = compressor.ensure_archive_dir(archive_dir)
+        # Snapshots / temp archives of rotators that were kill -9'ed (their finally never ran).
+        stale = archives.remove_stale_temp_files(archive_dir)
+        if stale:
+            info["stale_files_removed"] = stale
         snap_path = archive_dir / f".{name}.{os.getpid()}.snapshot"
 
         with steps.step("snapshot") as s:

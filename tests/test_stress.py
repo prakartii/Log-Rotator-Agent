@@ -305,6 +305,8 @@ class KilledRotatorTest(StressTestCase):
             rotator.wait(timeout=5)
         final = subprocess.run(command, capture_output=True, text=True, timeout=60)
         self.assertEqual(final.returncode, 0, final.stdout)  # no stale lock left behind
+        hidden = [p.name for p in self.archives.iterdir() if p.name.startswith(".")]
+        self.assertEqual(hidden, [], "temp files of killed rotators must be cleaned up")
         self.assertEqual(os.stat(self.log).st_size, 0)
         missing = lines_written - set(self.line_counts())
         self.assertEqual(len(missing), 0, "lines lost after a killed rotation")
