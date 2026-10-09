@@ -185,6 +185,12 @@ class HandleRequestTest(unittest.TestCase):
         self.assertIn("never deletes", result["message"])
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_unknown_words_are_not_understood(self):
+        result = self.handle("make me a sandwich")
+        self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
+        self.assertIn("Could not understand", result["message"])
+        self.assertEqual(result["available_logs"], ["nginx_access.log"])
+
 
 if __name__ == "__main__":
     unittest.main()
