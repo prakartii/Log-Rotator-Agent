@@ -96,6 +96,24 @@ def _format_error(result: dict) -> str:
 _FORMATTERS = {}
 
 
+def _formats(action):
+    def register(func):
+        _FORMATTERS[action] = func
+        return func
+    return register
+
+
+@_formats("list_logs")
+def _format_list(result):
+    if not result["logs"]:
+        return f"No logs in {result['log_dir']}"
+    lines = [f"{result['count']} log(s) in {result['log_dir']}:"]
+    for log in result["logs"]:
+        lines.append(f"  {log['name']:<28} {log['size_human']:>10}   inode {log['inode']}   "
+                     f"modified {log['modified']}")
+    return "\n".join(lines)
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
