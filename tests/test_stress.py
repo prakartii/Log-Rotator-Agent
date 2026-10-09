@@ -156,6 +156,23 @@ class ConcurrentRotatorsTest(StressTestCase):
         self.stop_writers()
         self.assertEveryLineOnce(self.line_counts())
 
+    def test_rotators_without_timeout_either_run_or_are_refused(self):
+        self.start_writer("--cooperative")
+        self.wait_for_size(8192)
+        results = self.results(self.start_rotators(4))
+        for status, result in results:
+            with self.subTest(result=result.get("error_code", "success")):
+                if result["status"] == "success":
+                    self.assertEqual(status, 0)
+                else:
+                    self.assertEqual(status, 1)
+                    self.assertEqual(result["error_code"], errors.ROTATION_IN_PROGRESS)
+                    self.assertTrue(result["log_unchanged"])
+        self.assertGreaterEqual(sum(r["status"] == "success" for _, r in results), 1)
+        time.sleep(0.2)
+        self.stop_writers()
+        self.assertEveryLineOnce(self.line_counts())
+
 
 if __name__ == "__main__":
     unittest.main()
