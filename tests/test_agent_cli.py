@@ -78,5 +78,14 @@ class InfoCommandTest(CliTestCase):
         self.assertIn("Available logs: apache_error.log", out)
 
 
+class RotateCommandTest(CliTestCase):
+    def test_dry_run(self):
+        status, out = self.run_cli("rotate", "apache_error", "--dry-run")
+        self.assertEqual(status, 0)
+        self.assertIn("DRY RUN: nothing was changed.", out)
+        self.assertEqual(self.log.read_bytes(), self.data)
+        self.assertFalse(self.archives.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
