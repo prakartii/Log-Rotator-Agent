@@ -221,7 +221,7 @@ finishes but adds a warning and reports `"writer_lock": {"acquired": false}`.
 | Writer | Paused around `ftruncate()`? | Lines that can be lost |
 |---|---|---|
 | `writer.py --cooperative` (shared `flock` per write) | yes | none |
-| normal `O_APPEND` writer | no | only writes in the microseconds after the final catch-up (reported in `bytes_lost`) |
+| normal `O_APPEND` writer | no | only writes in the microseconds after the final catch-up (`bytes_lost` is a lower bound) |
 | writer without `O_APPEND` | no | none lost, but a hole of zero bytes appears (warning) |
 
 ### Failure safety
