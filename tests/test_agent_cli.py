@@ -139,6 +139,16 @@ class ToolsAndCallCommandTest(CliTestCase):
         self.assertIn("not valid JSON", err.getvalue())
 
 
+class AskCommandTest(CliTestCase):
+    def test_ask_rotates_and_says_what_it_understood(self):
+        inode = os.stat(self.log).st_ino
+        status, out = self.run_cli("ask", "rotate the apache error logs")
+        self.assertEqual(status, 0, out)
+        self.assertTrue(out.startswith("Understood: rotate_log(log='apache error')\n"), out)
+        self.assertEqual(os.stat(self.log).st_size, 0)
+        self.assertEqual(os.stat(self.log).st_ino, inode)
+
+
 class ProcessTest(CliTestCase):
     def test_runs_as_a_separate_process(self):
         """The master agent starts agent.py as a program; check the exit codes from outside."""
