@@ -86,6 +86,13 @@ class ToolCallTest(unittest.TestCase):
         self.assertEqual(result["status"], "success")
         self.assertEqual([log["name"] for log in result["logs"]], ["apache_error.log", "nginx_access.log"])
 
+    def test_get_log_info_by_description(self):
+        result = self.call("get_log_info", {"log": "the apache error logs"})
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(result["log"], str(self.log))
+        self.assertEqual(result["size"], len(self.data))
+        self.assertEqual(result["inode"], os.stat(self.log).st_ino)
+
 
 if __name__ == "__main__":
     unittest.main()
