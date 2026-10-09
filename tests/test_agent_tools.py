@@ -16,6 +16,14 @@ class DescribeToolsTest(unittest.TestCase):
         self.assertEqual(sorted(names), ["find_open_handles", "get_log_info", "identify_log",
                                          "list_archives", "list_logs", "rotate_log"])
 
+    def test_descriptions_are_json_schemas(self):
+        tools = json.loads(json.dumps(agent_tools.describe_tools()))
+        for spec in tools:
+            with self.subTest(tool=spec["name"]):
+                self.assertTrue(spec["description"])
+                self.assertEqual(spec["input_schema"]["type"], "object")
+                self.assertFalse(spec["input_schema"]["additionalProperties"])
+
 
 if __name__ == "__main__":
     unittest.main()
