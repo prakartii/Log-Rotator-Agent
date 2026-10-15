@@ -132,6 +132,11 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(result["tool_calls"], [])
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_api_failure_before_any_tool(self):
+        result = self.run_llm(FakeClient(ConnectionError("no network")))
+        self.assertEqual(result["error_code"], errors.LLM_FAILED)
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
