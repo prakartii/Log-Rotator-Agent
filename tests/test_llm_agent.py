@@ -186,6 +186,12 @@ class CliEngineTest(LlmTestCase):
         self.assertEqual(status, 0, out)
         self.assertTrue(out.startswith("Understood: rotate_log(log='apache error', label="), out)
 
+    def test_llm_engine_without_api_key_is_a_usage_error(self):
+        with mock.patch.object(llm_agent, "available", return_value=False), \
+                contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exit_:
+            self.run_cli("ask", "--engine", "llm", EXAMPLE)
+        self.assertEqual(exit_.exception.code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
