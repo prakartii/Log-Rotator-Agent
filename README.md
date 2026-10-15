@@ -436,9 +436,9 @@ python3 agent.py ask "show the archives of the nginx access log"
 From Python: `handle_request("rotate the apache error logs")`, or only
 `parse_request(text)` to see the tool call without running it.
 
-The rules are plain keyword rules, not an LLM. A misunderstood request could
-truncate the wrong log, so the result must be predictable and testable. Each
-request becomes **exactly one** tool call:
+This section is the offline engine (`--engine rules`, or `auto` without an API key).
+The rules are plain keyword rules, not an LLM: predictable and testable, and they
+work without network access. Each request becomes **exactly one** tool call:
 
 | Words in the request | Tool call |
 |---|---|
