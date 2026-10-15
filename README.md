@@ -34,6 +34,7 @@ log_rotator/
         verifier.py      # verify_archive(), verify_copy(), verify_rotation(), watch_log_growth()
         truncator.py     # truncate_log(): ftruncate() on the open descriptor
         locking.py       # rotation_lock(), writer_lock(): flock-based locking
+        periods.py       # parse_period(): "last month", "2026-09", ... -> date range
     rotate.py            # rotate_log(): the full safe-rotation pipeline
     interface.py         # tool_specs(), call_tool(): the master agent's tool interface
 logs/                    # active demo logs (contents git-ignored)
@@ -365,11 +366,33 @@ call_tool("rotate_log", {"log": "the apache error logs", "watch_writer": 1})
 
 | Tool | Arguments |
 |---|---|
-| `list_logs` | none |
+| `list_logs` | `period` (optional) |
 | `identify_log` | `log` |
 | `get_log_info` | `log` |
-| `list_archives` | `log` (optional filter) |
-| `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `watch_writer`, `lock_timeout` |
+| `list_archives` | `log` (optional filter), `period` (optional) |
+| `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `period`, `watch_writer`, `lock_timeout` |
+
+### Date ranges (`period`)
+
+The master agent can pass the user's own words instead of computing dates:
+
+```bash
+python3 agent.py list --period "last month"          # logs last modified in September
+python3 agent.py archives apache_error --period 2026-09
+python3 agent.py rotate the apache error logs --period "last month"
+#   -> apache_error.log.2026-09.<time>.gz, result contains "period": {start, end, label}
+```
+
+Accepted: `today`, `yesterday`, `this/last week` (Monday start), `this/last month`,
+`this/last year`, `YYYY`, `YYYY-MM`, `YYYY-MM-DD`, `last N days`. Ranges are
+half-open and in local time. An unknown phrase returns `INVALID_REQUEST` with the
+list of supported forms, and nothing is touched.
+
+On `list_logs` / `list_archives` the period filters by modification time. On
+`rotate_log` it says which period the log's contents belong to: the archive is
+tagged with it (an explicit `label` wins) and the range is returned in the result.
+A live log has no per-line dates, so `rotate_log` does not check the log's
+contents against the period.
 
 `call` always prints JSON, and `call_tool()` never raises for expected problems.
 Before a tool runs, its arguments are checked against its schema. An unknown tool,

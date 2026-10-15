@@ -24,8 +24,11 @@ from pathlib import Path
 from . import config, errors
 from .errors import RotatorError
 from .rotate import rotate_log
-from .tools import log_info
+from .tools import log_info, periods
 from .tools.log_info import human_size
+
+_PERIOD_DOC = ("a date range in plain words: 'last month', 'this week', 'yesterday', "
+               "'last 7 days', '2026-09', '2026-09-15' or '2026'")
 
 _LOG_ARG = {
     "type": "string",
@@ -34,8 +37,8 @@ _LOG_ARG = {
 }
 
 
-def _list_logs() -> dict:
-    return log_info.list_logs()
+def _list_logs(period=None) -> dict:
+    return log_info.list_logs(period=period)
 
 
 def _identify_log(log=None) -> dict:
@@ -47,9 +50,10 @@ def _get_log_info(log=None) -> dict:
     return log_info.get_log_info(path)
 
 
-def _list_archives(log=None) -> dict:
+def _list_archives(log=None, period=None) -> dict:
     """Archives in rotated_logs/, newest first. Hidden files (temp/snapshot files) are skipped."""
     archive_dir = Path(config.ARCHIVE_DIR)
+    wanted = periods.parse_period(period) if period else None
     prefix = None
     if log is not None:
         # The log may be resolved by alias; its archives start with "<log name>."
@@ -63,6 +67,8 @@ def _list_archives(log=None) -> dict:
                 if prefix and not entry.name.startswith(prefix):
                     continue
                 st = entry.stat(follow_symlinks=False)
+                if wanted and not wanted.contains(st.st_mtime):
+                    continue
                 archives.append({
                     "name": entry.name,
                     "path": entry.path,
@@ -77,22 +83,24 @@ def _list_archives(log=None) -> dict:
     except OSError as err:
         raise errors.from_os_error(err, archive_dir) from None
     archives.sort(key=lambda a: (a.pop("_mtime"), a["name"]), reverse=True)
+    extra = {"period": wanted.to_dict()} if wanted else {}
     return errors.success("list_archives", archive_dir=str(archive_dir), count=len(archives),
-                          archives=archives)
+                          archives=archives, **extra)
 
 
 def _rotate_log(log=None, compress=True, truncate=True, dry_run=False, label=None,
-                watch_writer=0.0, lock_timeout=None) -> dict:
+                watch_writer=0.0, lock_timeout=None, period=None) -> dict:
     return rotate_log(log, compress=compress, truncate=truncate, dry_run=dry_run, label=label,
-                      watch_writer=watch_writer, lock_timeout=lock_timeout)
+                      watch_writer=watch_writer, lock_timeout=lock_timeout, period=period)
 
 
 # name -> (function, description, parameters). Parameters follow JSON schema.
 TOOLS = {
     "list_logs": (
         _list_logs,
-        "List the active log files the agent manages, with size, inode and modification time.",
-        {},
+        "List the active log files the agent manages, with size, inode and modification time. "
+        "With period, only logs last modified in that date range.",
+        {"period": {"type": "string", "description": "only logs modified in " + _PERIOD_DOC}},
     ),
     "identify_log": (
         _identify_log,
@@ -107,8 +115,10 @@ TOOLS = {
     ),
     "list_archives": (
         _list_archives,
-        "List rotated archives, newest first, optionally only those of one log.",
-        {"log": _LOG_ARG},
+        "List rotated archives, newest first, optionally only those of one log and/or "
+        "created in a date range.",
+        {"log": _LOG_ARG,
+         "period": {"type": "string", "description": "only archives created in " + _PERIOD_DOC}},
     ),
     "rotate_log": (
         _rotate_log,
@@ -125,7 +135,11 @@ TOOLS = {
                         "description": "validate and report what would happen, change nothing"},
             "label": {"type": "string",
                       "description": "tag in the archive name, e.g. '2026-09' "
-                                     "(letters, digits, '-' and '_')"},
+                                     "(letters, digits, '-' and '_'); overrides the period's label"},
+            "period": {"type": "string",
+                       "description": "the date range the log's contents belong to, as " + _PERIOD_DOC
+                                      + ". Tags the archive with it (last month -> '2026-09') and "
+                                        "records the range in the result"},
             "watch_writer": {"type": "number",
                              "description": "seconds to watch the log grow again after rotation "
                                             "(default 0)"},

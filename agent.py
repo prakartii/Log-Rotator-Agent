@@ -154,7 +154,8 @@ def build_parser():
     parser.add_argument("--json", action="store_true", help="print the raw JSON result")
     sub = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
-    sub.add_parser("list", parents=[common], help="list the active logs")
+    p = sub.add_parser("list", parents=[common], help="list the active logs")
+    p.add_argument("--period", help="only logs modified in this range, e.g. 'last month', 2026-09")
 
     for name, help_text in (("identify", "show which file a name or description refers to"),
                             ("info", "show inode-level details and writers of a log")):
@@ -163,6 +164,7 @@ def build_parser():
 
     p = sub.add_parser("archives", parents=[common], help="list rotated archives, newest first")
     p.add_argument("log", nargs="*", metavar="LOG", help="only archives of this log")
+    p.add_argument("--period", help="only archives created in this range, e.g. 'last month'")
 
     p = sub.add_parser("rotate", parents=[common], help="archive and empty a log in place")
     p.add_argument("log", nargs="*", metavar="LOG", help="log name, alias or description")
@@ -170,6 +172,8 @@ def build_parser():
     p.add_argument("--no-compress", action="store_true", help="keep a plain (uncompressed) archive")
     p.add_argument("--no-truncate", action="store_true", help="archive only, leave the log as it is")
     p.add_argument("--label", help="tag in the archive name, e.g. 2026-09")
+    p.add_argument("--period", help="date range the contents belong to, e.g. 'last month'; "
+                                    "tags the archive with it (2026-09)")
     p.add_argument("--watch", type=float, default=0.0, metavar="SECONDS",
                    help="watch the log grow again for up to SECONDS after rotation")
     p.add_argument("--lock-timeout", type=float, metavar="SECONDS",
@@ -187,13 +191,13 @@ def build_parser():
 def request_from_args(args):
     """Turn the parsed command line into (tool name, arguments)."""
     if args.command == "list":
-        return "list_logs", {}
+        return "list_logs", {"period": args.period}
     if args.command == "identify":
         return "identify_log", {"log": log_arg(args.log)}
     if args.command == "info":
         return "get_log_info", {"log": log_arg(args.log)}
     if args.command == "archives":
-        return "list_archives", {"log": log_arg(args.log)}
+        return "list_archives", {"log": log_arg(args.log), "period": args.period}
     if args.command == "rotate":
         return "rotate_log", {
             "log": log_arg(args.log),
@@ -201,6 +205,7 @@ def request_from_args(args):
             "truncate": not args.no_truncate,
             "dry_run": args.dry_run,
             "label": args.label,
+            "period": args.period,
             "watch_writer": args.watch,
             "lock_timeout": args.lock_timeout,
         }
