@@ -161,6 +161,25 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
 
 
+class CliEngineTest(LlmTestCase):
+    def run_cli(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = agent.main(["--log-dir", str(self.logs), "--archive-dir", str(self.archives), *argv])
+        return status, out.getvalue()
+
+    def test_ask_with_llm_engine_shows_the_calls_and_the_reply(self):
+        client = FakeClient(response(tool_use("rotate_log", {"log": "apache error", "label": "2026-09"})),
+                            response(text("Done.")))
+        with mock.patch.object(llm_agent, "available", return_value=True), \
+                mock.patch.object(llm_agent, "run_request",
+                                  functools.partial(llm_agent.run_request, client=client)):
+            status, out = self.run_cli("ask", EXAMPLE)
+        self.assertEqual(status, 0, out)
+        self.assertTrue(out.startswith(
+            "Claude called: rotate_log(log='apache error', label='2026-09') -> success\n"), out)
+        self.assertIn("Claude: Done.", out)
+
 
 if __name__ == "__main__":
     unittest.main()
