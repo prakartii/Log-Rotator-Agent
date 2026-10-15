@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -167,6 +168,19 @@ class AskCommandTest(CliTestCase):
         status, out = self.run_cli("ask", "--engine", "rules", "make me a sandwich")
         self.assertEqual(status, 1)
         self.assertIn("Try for example:", out)
+
+
+class ShellCommandTest(CliTestCase):
+    def run_shell(self, lines):
+        with mock.patch("sys.stdin", io.StringIO(lines)):
+            return self.run_cli("shell", "--engine", "rules")
+
+    def test_shell_runs_each_request(self):
+        status, out = self.run_shell("list the logs\nrotate the apache error logs\n")
+        self.assertEqual(status, 0, out)
+        self.assertIn("Understood: list_logs()", out)
+        self.assertIn("Understood: rotate_log(log='apache error')", out)
+        self.assertEqual(os.stat(self.log).st_size, 0)
 
 
 class ProcessTest(CliTestCase):
