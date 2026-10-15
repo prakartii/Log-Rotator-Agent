@@ -19,7 +19,7 @@ import os
 from datetime import date
 
 from . import errors
-from .agent_tools import call_tool, describe_tools
+from .agent_tools import call_tool, describe_tools, is_destructive
 from .errors import RotatorError
 
 MODEL = "claude-opus-5-5"
@@ -68,8 +68,13 @@ def _explain(name: str, arguments) -> str:
     return f"{name}({', '.join(f'{k}={v!r}' for k, v in arguments.items())})"
 
 
-def run_request(text: str, log_dir=None, archive_dir=None, client=None, today: date = None) -> dict:
+def run_request(text: str, log_dir=None, archive_dir=None, client=None, today: date = None,
+                confirm=None) -> dict:
     """Let Claude pick and run tools for a plain-English request. Never raises for expected errors.
+
+    confirm(explanation) -> bool is asked before a call that empties a log
+    (is_destructive); False skips the call and tells Claude the user declined.
+    None = no confirmation (scripts, the master shell).
 
     The result is the last tool's own result (so the CLI can format it) plus
     "request", "engine": "llm", "tool_calls" (every call with its status),
@@ -139,9 +144,14 @@ def run_request(text: str, log_dir=None, archive_dir=None, client=None, today: d
                 result = RotatorError(errors.INVALID_REQUEST,
                                       "Too many tool calls for one request").to_dict(action=block.name)
             else:
-                result = call_tool(block.name, block.input, log_dir=log_dir, archive_dir=archive_dir)
+                explanation = _explain(block.name, block.input)
+                if confirm and is_destructive(block.name, block.input) and not confirm(explanation):
+                    result = RotatorError(errors.CANCELLED, "The user declined; the log was not changed",
+                                          log_unchanged=True).to_dict(action=block.name)
+                else:
+                    result = call_tool(block.name, block.input, log_dir=log_dir, archive_dir=archive_dir)
                 calls.append({"tool": block.name, "arguments": block.input,
-                              "explanation": _explain(block.name, block.input),
+                              "explanation": explanation,
                               "status": result["status"]})
                 last_result = result
             results.append({"type": "tool_result", "tool_use_id": block.id,
