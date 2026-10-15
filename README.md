@@ -427,6 +427,11 @@ How `log_rotator/llm_agent.py` works:
 3. The results go back to Claude as `tool_result` blocks; the loop repeats until
    Claude stops calling tools (at most 8 calls per request), then it answers in a sentence.
 
+**Confirmation.** At a terminal, a request that would empty a log first shows the tool
+call and asks `Proceed? [y/N]`; anything but `y` returns `CANCELLED` and changes nothing.
+Dry runs and archive-only requests are never asked. `--yes` skips the prompt, and so does
+non-interactive use (the master shell, scripts), where stdin is not a terminal.
+
 `python3 agent.py shell` reads one request per line (like the class's Agentic Shell)
 until `exit`, `quit` or Ctrl-D, and prints each result.
 
@@ -580,7 +585,7 @@ publishing its archive and `ftruncate()` causes duplicated (never lost) lines.
 python3 -m unittest discover -v
 ```
 
-321 tests, about 40 seconds. They run on Linux (WSL2 works) and start real `writer.py`
+331 tests, about 45 seconds. They run on Linux (WSL2 works) and start real `writer.py`
 and `agent.py` processes; tests that depend on file permissions are skipped when run as root.
 
 ## Development phases
