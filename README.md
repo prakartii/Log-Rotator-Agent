@@ -42,7 +42,8 @@ log_rotator/
         archives.py      # list_archives(): rotated archives, newest first
     rotate.py            # rotate_log(): the full safe-rotation pipeline
     agent_tools.py       # describe_tools(), call_tool(): interface for the master agent
-    language.py          # parse_request(), handle_request(): plain-English requests
+    language.py          # parse_request(), handle_request(): plain-English requests (keyword rules)
+    llm_agent.py         # run_request(): Claude reads the request and calls the tools
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
