@@ -149,6 +149,13 @@ class RunRequestTest(LlmTestCase):
         result = self.run_llm(FakeClient(response(stop_reason="refusal")))
         self.assertEqual(result["error_code"], errors.LLM_FAILED)
 
+    def test_number_of_tool_calls_is_limited(self):
+        client = FakeClient(*[response(tool_use("list_logs", {}, f"toolu_{i}"))
+                              for i in range(llm_agent.MAX_TOOL_CALLS)])
+        result = self.run_llm(client, "list the logs forever")
+        self.assertEqual(len(result["tool_calls"]), llm_agent.MAX_TOOL_CALLS)
+        self.assertIn("too many tool calls", result["reply"])
+
 
 if __name__ == "__main__":
     unittest.main()
