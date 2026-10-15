@@ -371,6 +371,11 @@ describe_tools()   # [{"name": "rotate_log", "description": "...", "input_schema
 call_tool("rotate_log", {"log": "the apache error logs", "dry_run": True})
 ```
 
+For the user's plain text, the base shell calls one function:
+`log_rotator.ask("Zip up the apache error logs from last month ...")`. It uses
+Claude when an API key is set and the keyword rules otherwise (`"engine"` in the
+result says which).
+
 The same list is printed by `python3 agent.py tools`, and any tool can be called
 from the shell with `python3 agent.py call rotate_log '{"log": "apache error"}'`.
 
