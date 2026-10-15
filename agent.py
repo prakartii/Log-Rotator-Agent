@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 
-from log_rotator import agent_tools, language
+from log_rotator import agent_tools, language, llm_agent
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,6 +26,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     ask = commands.add_parser("ask", help='plain-English request, e.g. "rotate the apache error logs"')
     ask.add_argument("request", nargs="+", help="the request (quotes are optional)")
+    ask.add_argument("--engine", choices=["auto", "llm", "rules"], default="auto",
+                     help="llm = Claude picks the tools, rules = keyword rules; "
+                          "auto (default) = llm if an API key is set, else rules")
 
     commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs", params=[])
 
@@ -79,12 +82,20 @@ def tool_call(args) -> tuple:
 def format_result(result: dict) -> str:
     """Human-readable text for a tool result; unknown results fall back to JSON."""
     # For plain-English requests, first say what was understood.
-    heading = (f"Understood: {result['interpreted_as']['explanation']}\n"
-               if "interpreted_as" in result else "")
+    if "tool_calls" in result:  # Claude chose the tools
+        heading = "".join(f"Claude called: {call['explanation']} -> {call['status']}\n"
+                          for call in result["tool_calls"])
+    elif "interpreted_as" in result:
+        heading = f"Understood: {result['interpreted_as']['explanation']}\n"
+    else:
+        heading = ""
+    footer = f"\nClaude: {result['reply']}" if result.get("reply") else ""
     if result["status"] == "error":
-        return heading + _format_error(result)
+        return heading + _format_error(result) + footer
+    if result.get("action") == "llm_reply":
+        return heading + f"Claude: {result['message']}"
     formatter = _FORMATTERS.get(result.get("action"))
-    return heading + (formatter(result) if formatter else json.dumps(result, indent=2))
+    return heading + (formatter(result) if formatter else json.dumps(result, indent=2)) + footer
 
 
 def _format_error(result: dict) -> str:
@@ -202,8 +213,12 @@ def main(argv=None) -> int:
         print(json.dumps(agent_tools.describe_tools(), indent=2))
         return 0
     if args.command == "ask":
-        result = language.handle_request(" ".join(args.request), log_dir=args.log_dir,
-                                         archive_dir=args.archive_dir)
+        if args.engine == "llm" and not llm_agent.available():
+            parser.error("--engine llm needs the anthropic package (pip install anthropic) "
+                         "and ANTHROPIC_API_KEY")
+        use_llm = args.engine == "llm" or (args.engine == "auto" and llm_agent.available())
+        handler = llm_agent.run_request if use_llm else language.handle_request
+        result = handler(" ".join(args.request), log_dir=args.log_dir, archive_dir=args.archive_dir)
     else:
         try:
             name, arguments = tool_call(args)
