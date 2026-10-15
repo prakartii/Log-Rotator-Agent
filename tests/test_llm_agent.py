@@ -156,6 +156,17 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(len(result["tool_calls"]), llm_agent.MAX_TOOL_CALLS)
         self.assertIn("too many tool calls", result["reply"])
 
+    def test_declined_confirmation_leaves_the_log_unchanged(self):
+        asked = []
+        client = FakeClient(response(tool_use("rotate_log", {"log": "apache error", "label": "2026-09"})),
+                            response(text("OK, I left the log as it is.")))
+        result = llm_agent.run_request(EXAMPLE, log_dir=str(self.logs), archive_dir=str(self.archives),
+                                       client=client, confirm=lambda e: asked.append(e) or False)
+        self.assertEqual(asked, ["rotate_log(log='apache error', label='2026-09')"])
+        self.assertEqual(result["error_code"], errors.CANCELLED)
+        self.assertTrue(client.requests[1]["messages"][-1]["content"][0]["is_error"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
     def test_empty_request(self):
         result = self.run_llm(FakeClient(), "  ")
         self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
