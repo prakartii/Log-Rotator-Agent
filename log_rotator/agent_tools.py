@@ -47,6 +47,13 @@ def describe_tools() -> list:
     return [{k: v for k, v in t.items() if k != "function"} for t in TOOLS.values()]
 
 
+def is_destructive(name: str, arguments) -> bool:
+    """True for the one call that empties a log: rotate_log without dry_run and with truncate."""
+    if name != "rotate_log" or not isinstance(arguments, dict):
+        return False
+    return arguments.get("dry_run") is not True and arguments.get("truncate") is not False
+
+
 def _check_arguments(spec: dict, arguments) -> None:
     """Reject unknown, missing or wrongly typed arguments before anything runs."""
     if arguments is None:
