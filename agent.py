@@ -4,6 +4,7 @@
     python3 agent.py list                          # active logs
     python3 agent.py info "apache error"           # inode, size, open handles
     python3 agent.py rotate apache_error --dry-run # what would happen
+    python3 agent.py shell                         # type requests one after another
 
 Every command calls exactly one tool from log_rotator.agent_tools, the same
 interface the master agent uses. --json prints the tool's result unchanged.
@@ -29,6 +30,10 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("--engine", choices=["auto", "llm", "rules"], default="auto",
                      help="llm = Claude picks the tools, rules = keyword rules; "
                           "auto (default) = llm if an API key is set, else rules")
+
+    shell = commands.add_parser("shell", help="type requests one after another (exit to quit)")
+    shell.add_argument("--engine", choices=["auto", "llm", "rules"], default="auto",
+                       help="same as for ask")
 
     commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs", params=[])
 
@@ -215,12 +220,30 @@ def _request_handler(parser, engine: str):
     return llm_agent.run_request if use_llm else language.handle_request
 
 
+def run_shell(handler, args, stdin=None) -> int:
+    """Read requests line by line until exit/quit or end of input; print each result."""
+    stdin = stdin or sys.stdin
+    interactive = stdin.isatty()
+    while True:
+        if interactive:
+            print("log-rotator> ", end="", flush=True)
+        line = stdin.readline()
+        if not line or line.strip().lower() in ("exit", "quit"):
+            return 0
+        if not line.strip():
+            continue
+        result = handler(line.strip(), log_dir=args.log_dir, archive_dir=args.archive_dir)
+        print(json.dumps(result, indent=2) if args.json else format_result(result))
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "tools":
         print(json.dumps(agent_tools.describe_tools(), indent=2))
         return 0
+    if args.command == "shell":
+        return run_shell(_request_handler(parser, args.engine), args)
     if args.command == "ask":
         handler = _request_handler(parser, args.engine)
         result = handler(" ".join(args.request), log_dir=args.log_dir, archive_dir=args.archive_dir)
