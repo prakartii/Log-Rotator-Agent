@@ -8,6 +8,9 @@ active log (snapshot → gzip → verify) and then empties the log in place with
 `ftruncate()`. The log is never deleted and recreated, so its inode stays the
 same and the writer process keeps running on its open file descriptor.
 
+Requests can be typed in plain English: Claude (LLM function calling) reads the
+request and decides which of the agent's tools to run.
+
 > Status: all 12 development phases are complete. For the live presentation, follow
 > the step-by-step [demo guide](docs/DEMO.md).
 
