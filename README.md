@@ -387,6 +387,40 @@ Directories are not tool arguments, so a request can never point the agent at a
 different folder. Like every tool, `call_tool()` never raises for expected errors;
 it returns `{"status": "error", "error_code": ...}`.
 
+## Claude tool calling (function calling)
+
+The assignment flow: the user's text goes to an LLM, the LLM decides which of the
+agent's tools to run, and the tools do the real work with system calls.
+
+```bash
+pip install -r requirements.txt
+export ANTHROPIC_API_KEY=...
+python3 agent.py ask "Zip up the apache error logs from last month and clear the current file."
+```
+
+```
+Claude called: rotate_log(log='apache error', label='2026-09') -> success
+Rotated /home/me/logs/apache_error.log
+  archive:  .../rotated_logs/apache_error.log.2026-09.2026-10-15T101500.gz (...)
+  inode:    18 -> 18 (preserved)
+Claude: Archived the apache error log as ...2026-09...gz and emptied it in place.
+```
+
+How `log_rotator/llm_agent.py` works:
+
+1. The request and the tool definitions from `describe_tools()` (name, description,
+   JSON schema) are sent to Claude (`claude-opus-5-5`).
+2. Claude answers with `tool_use` blocks. Each one is run with `call_tool()`, so the
+   same schema checks and path rules apply: Claude can only pick a tool, never touch
+   a file. Wrong arguments come back as an error result, not a crash.
+3. The results go back to Claude as `tool_result` blocks; the loop repeats until
+   Claude stops calling tools (at most 8 calls per request), then it answers in a sentence.
+
+`--engine llm` forces Claude, `--engine rules` forces the keyword rules below, and the
+default `auto` uses Claude when the package and an API key are present. API failures,
+refusals and cut-off answers return `LLM_FAILED`; if a tool already ran, its result is
+still shown. From Python: `llm_agent.run_request(text)`.
+
 ## Plain-English requests
 
 ```bash
