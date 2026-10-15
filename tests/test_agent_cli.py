@@ -182,6 +182,12 @@ class ShellCommandTest(CliTestCase):
         self.assertIn("Understood: rotate_log(log='apache error')", out)
         self.assertEqual(os.stat(self.log).st_size, 0)
 
+    def test_shell_stops_at_exit_and_skips_blank_lines(self):
+        status, out = self.run_shell("\n   \nexit\nrotate the apache error logs\n")
+        self.assertEqual(status, 0)
+        self.assertEqual(out, "")
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 class ProcessTest(CliTestCase):
     def test_runs_as_a_separate_process(self):
