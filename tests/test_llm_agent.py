@@ -193,5 +193,13 @@ class CliEngineTest(LlmTestCase):
         self.assertEqual(exit_.exception.code, 2)
 
 
+
+class AvailableTest(unittest.TestCase):
+    def test_not_available_without_the_anthropic_package(self):
+        with mock.patch.dict(sys.modules, {"anthropic": None}), \
+                mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "key"}):
+            self.assertFalse(llm_agent.available())
+
+
 if __name__ == "__main__":
     unittest.main()
