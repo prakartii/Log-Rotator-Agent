@@ -132,6 +132,18 @@ python3 agent.py --json call rotate_log '{"log": "apache error", "dry_run": true
 echo $?                                                            # 0 ok, 1 error, 2 usage
 ```
 
+From Python, the master shell needs one call: `log_rotator.ask("rotate the apache error logs")`
+(Claude when an API key is set, keyword rules otherwise; `"engine"` in the result says which).
+
+To show it as a shell, type requests one after another and end with `exit`:
+
+```bash
+python3 agent.py shell
+log-rotator> list the logs
+log-rotator> what would happen if you rotated the apache error log?
+log-rotator> exit
+```
+
 ## Questions to expect
 
 | Question | Short answer |
