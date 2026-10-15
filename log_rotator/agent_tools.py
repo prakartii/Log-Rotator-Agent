@@ -118,9 +118,15 @@ def _roots(context):
     return [Path(context["log_dir"])] if context["log_dir"] else None
 
 
-@tool("list_logs", "List the active log files that the agent manages, with size and inode.")
-def _list_logs(context):
-    return log_info.list_logs(context["log_dir"])
+_PERIOD_DOC = ("a date range in plain words: 'last month', 'this week', 'yesterday', "
+               "'last 7 days', '2026-09', '2026-09-15' or '2026'")
+
+
+@tool("list_logs", "List the active log files that the agent manages, with size and inode. "
+      "With period, only logs last modified in that date range.",
+      {"period": {"type": "string", "description": "only logs modified in " + _PERIOD_DOC}})
+def _list_logs(context, period=None):
+    return log_info.list_logs(context["log_dir"], period=period)
 
 
 @tool("identify_log", "Resolve a log name, alias or description to the validated log path.",
@@ -154,7 +160,12 @@ def _find_open_handles(context, log=None):
                        "description": "empty the log after archiving (default true); false = archive only"},
           "dry_run": {"type": "boolean", "description": "validate and report, change nothing"},
           "label": {"type": "string",
-                    "description": "tag in the archive name, e.g. '2026-09' (letters, digits, - and _)"},
+                    "description": "tag in the archive name, e.g. '2026-09' (letters, digits, - and _); "
+                                   "overrides the period's label"},
+          "period": {"type": "string",
+                     "description": "the date range the log's contents belong to, as " + _PERIOD_DOC
+                                    + ". Tags the archive with it (last month -> '2026-09') and "
+                                      "records the range in the result"},
           "lock_timeout": {"type": "number", "minimum": 0,
                            "description": "seconds to wait if another rotation of this log is running"},
           "watch_writer": {"type": "number", "minimum": 0,
@@ -165,8 +176,10 @@ def _rotate_log(context, log=None, **options):
                              allowed_roots=_roots(context), **options)
 
 
-@tool("list_archives", "List the rotated archives, newest first; optionally only those of one log.",
-      {"log": _LOG_ARG})
-def _list_archives(context, log=None):
+@tool("list_archives", "List the rotated archives, newest first; optionally only those of one log "
+      "and/or rotated in a date range.",
+      {"log": _LOG_ARG,
+       "period": {"type": "string", "description": "only archives rotated in " + _PERIOD_DOC}})
+def _list_archives(context, log=None, period=None):
     log_name = os.path.basename(_identify_log(context, log)["log"]) if log else None
-    return archives.list_archives(context["archive_dir"], log_name=log_name)
+    return archives.list_archives(context["archive_dir"], log_name=log_name, period=period)
