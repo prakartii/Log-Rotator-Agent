@@ -426,6 +426,9 @@ How `log_rotator/llm_agent.py` works:
 3. The results go back to Claude as `tool_result` blocks; the loop repeats until
    Claude stops calling tools (at most 8 calls per request), then it answers in a sentence.
 
+`python3 agent.py shell` reads one request per line (like the class's Agentic Shell)
+until `exit`, `quit` or Ctrl-D, and prints each result.
+
 `--engine llm` forces Claude, `--engine rules` forces the keyword rules below, and the
 default `auto` uses Claude when the package and an API key are present. API failures,
 refusals and cut-off answers return `LLM_FAILED`; if a tool already ran, its result is
