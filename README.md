@@ -43,6 +43,7 @@ log_rotator/
         truncator.py     # truncate_log(): ftruncate() on the open descriptor
         locking.py       # rotation_lock(), writer_lock(): flock-based locking
         archives.py      # list_archives(): rotated archives, newest first
+        periods.py       # parse_period(): "last month", "2026-09", ... -> date range
     rotate.py            # rotate_log(): the full safe-rotation pipeline
     agent_tools.py       # describe_tools(), call_tool(): interface for the master agent
     language.py          # parse_request(), handle_request(): plain-English requests (keyword rules)
@@ -382,12 +383,29 @@ from the shell with `python3 agent.py call rotate_log '{"log": "apache error"}'`
 
 | Tool | Arguments |
 |---|---|
-| `list_logs` | none |
+| `list_logs` | `period` |
 | `identify_log` | `log` (required) |
 | `get_log_info` | `log` |
 | `find_open_handles` | `log` |
-| `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `lock_timeout`, `watch_writer` |
-| `list_archives` | `log` |
+| `rotate_log` | `log`, `compress`, `truncate`, `dry_run`, `label`, `period`, `lock_timeout`, `watch_writer` |
+| `list_archives` | `log`, `period` |
+
+**Date ranges (`period`).** The master agent can pass the user's own words instead of
+computing dates. `list_logs` and `list_archives` keep only what falls in the range
+(logs by modification time, archives by the time in their name); on `rotate_log` the
+period tags the archive (an explicit `label` wins) and is returned in the result:
+
+```bash
+python3 agent.py list --period "last month"
+python3 agent.py archives apache_error --period 2026-09
+python3 agent.py rotate apache_error --period "last month"   # apache_error.log.2026-09.<time>.gz
+```
+
+Accepted: `today`, `yesterday`, `this/last week` (Monday start), `this/last month`,
+`this/last year`, `YYYY`, `YYYY-MM`, `YYYY-MM-DD` (years 1970-9998), `last N days`; local time, half-open
+ranges. Anything else returns `INVALID_REQUEST` with the supported forms. As with
+labels from plain-English requests, a period does not pick old lines out of a live
+log; the whole current log is archived.
 
 `call_tool()` checks every call against the tool's JSON schema **before** anything
 runs: unknown tools, unknown or missing arguments, wrong types (`"yes"` for a

@@ -19,6 +19,7 @@ from pathlib import Path
 from .. import config
 from .. import errors
 from ..errors import RotatorError
+from . import periods
 from .processes import find_open_handles, unsafe_writers
 from .safety import open_validated, validate_log_path
 
@@ -38,9 +39,13 @@ def _iso(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp).isoformat(timespec="seconds")
 
 
-def list_logs(log_dir=None) -> dict:
-    """List regular files (no symlinks, no hidden files) in the log directory."""
+def list_logs(log_dir=None, period=None, now: datetime = None) -> dict:
+    """List regular files (no symlinks, no hidden files) in the log directory.
+
+    period - optional "last month", "2026-09", ...: only logs last modified in that range
+    """
     log_dir = Path(log_dir or config.LOG_DIR)
+    wanted = periods.parse_period(period, now) if period else None
     logs = []
     try:
         with os.scandir(log_dir) as entries:
@@ -49,6 +54,8 @@ def list_logs(log_dir=None) -> dict:
                 if entry.name.startswith(".") or not entry.is_file(follow_symlinks=False):
                     continue
                 st = entry.stat(follow_symlinks=False)
+                if wanted and not wanted.contains(st.st_mtime):
+                    continue
                 logs.append({
                     "name": entry.name,
                     "path": entry.path,
@@ -60,7 +67,8 @@ def list_logs(log_dir=None) -> dict:
     except OSError as err:
         raise errors.from_os_error(err, log_dir) from None
     logs.sort(key=lambda log: log["name"])
-    return errors.success("list_logs", log_dir=str(log_dir), count=len(logs), logs=logs)
+    extra = {"period": wanted.to_dict()} if wanted else {}
+    return errors.success("list_logs", log_dir=str(log_dir), count=len(logs), logs=logs, **extra)
 
 
 def _normalise(query: str) -> str:

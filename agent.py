@@ -37,7 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     shell.add_argument("--engine", choices=["auto", "llm", "rules"], default="auto",
                        help="same as for ask")
 
-    commands.add_parser("list", help="list the active logs").set_defaults(tool="list_logs", params=[])
+    list_cmd = commands.add_parser("list", help="list the active logs")
+    list_cmd.add_argument("--period", help="only logs modified in this range, e.g. 'last month', 2026-09")
+    list_cmd.set_defaults(tool="list_logs", params=["period"])
 
     info = commands.add_parser("info", help="inode, size, permissions and open handles of a log")
     info.add_argument("log", nargs="?", help="log name, alias or path (default: apache_error.log)")
@@ -56,16 +58,19 @@ def build_parser() -> argparse.ArgumentParser:
     rotate.add_argument("--no-truncate", dest="truncate", action="store_const", const=False,
                         help="archive only, leave the log as it is")
     rotate.add_argument("--label", help="tag in the archive name, e.g. 2026-09")
+    rotate.add_argument("--period", help="date range the contents belong to, e.g. 'last month'; "
+                                         "tags the archive with it (2026-09)")
     rotate.add_argument("--lock-timeout", type=float, metavar="SECONDS",
                         help="wait this long if another rotation is running")
     rotate.add_argument("--watch", dest="watch_writer", type=float, metavar="SECONDS",
                         help="watch the writer continue for up to SECONDS")
     rotate.set_defaults(tool="rotate_log", params=["log", "dry_run", "compress", "truncate", "label",
-                                                   "lock_timeout", "watch_writer"])
+                                                   "period", "lock_timeout", "watch_writer"])
 
     archives = commands.add_parser("archives", help="list rotated archives, newest first")
     archives.add_argument("log", nargs="?", help="only archives of this log")
-    archives.set_defaults(tool="list_archives", params=["log"])
+    archives.add_argument("--period", help="only archives rotated in this range, e.g. 'last month'")
+    archives.set_defaults(tool="list_archives", params=["log", "period"])
 
     commands.add_parser("tools", help="print the tool definitions (JSON schemas) for the master agent")
 

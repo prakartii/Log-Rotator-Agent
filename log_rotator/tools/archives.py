@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .. import config, errors
+from . import periods
 from .log_info import human_size
 
 _TAIL = (r"(?:\.(?P<label>[A-Za-z0-9_-]+))?"
@@ -45,13 +46,17 @@ def parse_archive_name(name: str):
     }
 
 
-def list_archives(archive_dir=None, log_name: str = None) -> dict:
+def list_archives(archive_dir=None, log_name: str = None, period=None,
+                  now: datetime = None) -> dict:
     """List the archives in the archive directory, newest first.
 
     log_name limits the list to one log ("apache_error.log"). Hidden files
     (snapshots and temp archives still being written) and symlinks are skipped.
+    period limits the list to archives rotated in that range ("last month", "2026-09");
+    the time comes from the archive's name, not from its modification time.
     """
     archive_dir = Path(archive_dir or config.ARCHIVE_DIR)
+    wanted = periods.parse_period(period, now) if period else None
     archives = []
     try:
         with os.scandir(archive_dir) as entries:
@@ -61,6 +66,8 @@ def list_archives(archive_dir=None, log_name: str = None) -> dict:
                 parts = parse_archive_name(entry.name)
                 if parts is None or (log_name and parts["log_name"] != log_name):
                     continue
+                if wanted and not wanted.contains(datetime.fromisoformat(parts["rotated_at"]).timestamp()):
+                    continue
                 st = entry.stat(follow_symlinks=False)
                 archives.append({"name": entry.name, "path": entry.path, "size": st.st_size,
                                  "size_human": human_size(st.st_size), **parts})
@@ -69,9 +76,10 @@ def list_archives(archive_dir=None, log_name: str = None) -> dict:
     except OSError as err:
         raise errors.from_os_error(err, archive_dir) from None
     archives.sort(key=lambda a: (a["rotated_at"], a["copy"]), reverse=True)
+    extra = {"period": wanted.to_dict()} if wanted else {}
     return errors.success("list_archives", archive_dir=str(archive_dir), log_name=log_name,
                           count=len(archives), total_size=sum(a["size"] for a in archives),
-                          archives=archives)
+                          archives=archives, **extra)
 
 
 # Temp files of a rotation: ".<archive name>.<pid>.snapshot" and ".<archive name>.<pid>.tmp".
