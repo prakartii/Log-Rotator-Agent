@@ -398,6 +398,8 @@ export ANTHROPIC_API_KEY=...
 python3 agent.py ask "Zip up the apache error logs from last month and clear the current file."
 ```
 
+Shape of the output (shortened; Claude's last sentence varies):
+
 ```
 Claude called: rotate_log(log='apache error', label='2026-09') -> success
 Rotated /home/me/logs/apache_error.log
