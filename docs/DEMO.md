@@ -6,7 +6,10 @@ to it, without losing the file, the inode or the writer.**
 
 ## Before the demo
 
-- Ubuntu or WSL2, Python 3.9+, no extra packages.
+- Ubuntu or WSL2, Python 3.9+.
+- For Claude tool calling: `pip install -r requirements.txt` and
+  `export ANTHROPIC_API_KEY=...` in terminal 2. Without a key every `ask` still works
+  with the keyword rules (`Understood: ...` instead of `Claude called: ...`).
 - Work on the Linux filesystem (`~`), not `/mnt/c`: inode numbers are short and
   `chmod` works there.
 - Open **three terminals** in the project folder:
