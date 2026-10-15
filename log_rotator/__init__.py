@@ -19,7 +19,8 @@ The master agent only needs two functions:
     describe_tools()                                    # tool names + JSON schemas
     call_tool("rotate_log", {"log": "apache error"})   # -> structured result dict
 
-or, for plain-English requests, handle_request("rotate the apache error logs").
+or, for plain-English requests, ask("rotate the apache error logs"): Claude
+picks the tools when an API key is set, the keyword rules otherwise.
 """
 
 __version__ = "0.1.0"
@@ -27,5 +28,6 @@ AGENT_NAME = "log_rotator"
 
 from .agent_tools import call_tool, describe_tools  # noqa: E402
 from .language import handle_request, parse_request  # noqa: E402
+from .llm_agent import ask  # noqa: E402
 
-__all__ = ["AGENT_NAME", "call_tool", "describe_tools", "handle_request", "parse_request"]
+__all__ = ["AGENT_NAME", "ask", "call_tool", "describe_tools", "handle_request", "parse_request"]
