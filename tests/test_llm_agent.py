@@ -201,5 +201,12 @@ class AvailableTest(unittest.TestCase):
             self.assertFalse(llm_agent.available())
 
 
+    def test_not_available_without_credentials(self):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("ANTHROPIC_")}
+        with mock.patch.dict(sys.modules, {"anthropic": SimpleNamespace()}), \
+                mock.patch.dict(os.environ, env, clear=True):
+            self.assertFalse(llm_agent.available())
+
+
 if __name__ == "__main__":
     unittest.main()
