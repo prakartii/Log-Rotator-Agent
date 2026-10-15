@@ -1,0 +1,3 @@
+# Optional: only needed for `agent.py ask --engine llm` (Claude picks the tools).
+# Everything else uses the Python standard library.
+anthropic
