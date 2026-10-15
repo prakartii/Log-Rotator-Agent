@@ -165,6 +165,21 @@ class HandleRequestTest(unittest.TestCase):
         with gzip.open(result["archive"], "rb") as f:
             self.assertEqual(f.read(), self.data)
 
+    def test_declined_confirmation_changes_nothing(self):
+        asked = []
+        result = handle_request("rotate the nginx access log", log_dir=self.logs,
+                                archive_dir=self.archives, confirm=lambda e: asked.append(e) or False)
+        self.assertEqual(asked, ["rotate_log(log='nginx access')"])
+        self.assertEqual(result["error_code"], errors.CANCELLED)
+        self.assertEqual(self.log.read_bytes(), self.data)
+        self.assertFalse(self.archives.exists() and any(self.archives.iterdir()))
+
+    def test_dry_run_is_never_confirmed(self):
+        result = handle_request("what would happen if you rotated the nginx access log?",
+                                log_dir=self.logs, archive_dir=self.archives,
+                                confirm=lambda e: self.fail("a dry run needs no confirmation"))
+        self.assertEqual(result["status"], "success", result)
+
     def test_result_shows_the_interpretation(self):
         result = self.handle("what would happen if you rotated the nginx access log?")
         self.assertEqual(result["request"], "what would happen if you rotated the nginx access log?")
