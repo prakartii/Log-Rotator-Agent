@@ -220,6 +220,15 @@ class AskTest(LlmTestCase):
         self.assertEqual(result["action"], "rotate")
         self.assertEqual(os.stat(self.log).st_size, 0)
 
+    def test_ask_uses_claude_when_available(self):
+        client = FakeClient(response(tool_use("list_logs", {})), response(text("One log.")))
+        with mock.patch.object(llm_agent, "available", return_value=True), \
+                mock.patch.object(llm_agent, "run_request",
+                                  functools.partial(llm_agent.run_request, client=client)):
+            result = llm_agent.ask("which logs are there?", log_dir=str(self.logs))
+        self.assertEqual(result["engine"], "llm")
+        self.assertEqual(result["reply"], "One log.")
+
 
 if __name__ == "__main__":
     unittest.main()
