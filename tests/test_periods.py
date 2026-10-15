@@ -53,10 +53,20 @@ class ParsePeriodTests(unittest.TestCase):
 
     def test_bad_input(self):
         for text in ("", "   ", None, 5, "someday", "2026-13", "2026-02-30", "last 0 days",
-                     "last month; rm -rf /", "0000-01"):
+                     "last month; rm -rf /", "0000-01", "0001", "0001-01-01", "1969",
+                     "9999", "9999-12", "9999-12-31"):
             with self.assertRaises(errors.RotatorError, msg=repr(text)) as ctx:
                 periods.parse_period(text, NOW)
             self.assertEqual(ctx.exception.code, errors.INVALID_REQUEST)
+
+    def test_dates_near_the_calendar_limits_are_rejected_not_raised(self):
+        for now in (datetime(9999, 12, 31), datetime(1, 1, 1)):
+            for text in ("today", "yesterday", "this week", "last week", "this month",
+                         "last month", "this year", "last year", "last 7 days"):
+                try:
+                    periods.parse_period(text, now)
+                except errors.RotatorError as err:
+                    self.assertEqual(err.code, errors.INVALID_REQUEST)
 
     def test_contains_is_half_open(self):
         p = periods.parse_period("last month", NOW)
@@ -140,6 +150,10 @@ class PeriodToolTests(unittest.TestCase):
         self.assertIn("period", result)
         self.assertEqual(len(list(self.archives.iterdir())), 2)
         self.assertEqual((self.logs / "apache_error.log").stat().st_size, 500)
+
+    def test_old_year_is_a_structured_error_not_a_traceback(self):
+        for tool in ("list_logs", "list_archives"):
+            self.assertEqual(self.call(tool, {"period": "0001"})["error_code"], errors.INVALID_REQUEST)
 
     def test_period_must_be_a_string(self):
         result = self.call("list_logs", {"period": 5})

@@ -402,7 +402,7 @@ python3 agent.py rotate apache_error --period "last month"   # apache_error.log.
 ```
 
 Accepted: `today`, `yesterday`, `this/last week` (Monday start), `this/last month`,
-`this/last year`, `YYYY`, `YYYY-MM`, `YYYY-MM-DD`, `last N days`; local time, half-open
+`this/last year`, `YYYY`, `YYYY-MM`, `YYYY-MM-DD` (years 1970-9998), `last N days`; local time, half-open
 ranges. Anything else returns `INVALID_REQUEST` with the supported forms. As with
 labels from plain-English requests, a period does not pick old lines out of a live
 log; the whole current log is archived.

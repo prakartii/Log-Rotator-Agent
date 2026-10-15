@@ -28,6 +28,8 @@ _MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
 _DAY_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _YEAR_RE = re.compile(r"^(\d{4})$")
 
+_MIN_YEAR, _MAX_YEAR = 1970, 9998
+
 SUPPORTED = ("today", "yesterday", "this week", "last week", "this month", "last month",
              "this year", "last year", "YYYY", "YYYY-MM", "YYYY-MM-DD", "last N days")
 
@@ -68,6 +70,13 @@ def _bad(text) -> RotatorError:
 
 def parse_period(text: str, now: datetime = None) -> Period:
     """Turn words like "last month" into a Period. Raises INVALID_REQUEST if not understood."""
+    try:
+        return _parse(text, now)
+    except (ValueError, OverflowError):  # e.g. 2026-02-30, or a range past year 9999
+        raise _bad(text) from None
+
+
+def _parse(text, now):
     if not isinstance(text, str) or not text.strip():
         raise _bad(text)
     now = now or datetime.now()
@@ -101,23 +110,19 @@ def parse_period(text: str, now: datetime = None) -> Period:
         first = today - timedelta(days=int(match.group(1)) - 1)
         return Period(first, today + timedelta(days=1), f"{first:%Y-%m-%d}_{today:%Y-%m-%d}")
 
-    try:
-        if match := _MONTH_RE.match(words):
-            year, month = int(match.group(1)), int(match.group(2))
-            if 1 <= month <= 12 and year >= 1:
-                return _month(year, month)
-        elif match := _DAY_RE.match(words):
-            day = datetime(*map(int, match.groups()))
+    # Explicit years start at 1970 (the epoch): earlier local times cannot be
+    # converted to timestamps on every platform, and no log is that old.
+    if match := _MONTH_RE.match(words):
+        year, month = int(match.group(1)), int(match.group(2))
+        if 1 <= month <= 12 and _MIN_YEAR <= year <= _MAX_YEAR:
+            return _month(year, month)
+    elif match := _DAY_RE.match(words):
+        day = datetime(*map(int, match.groups()))
+        if _MIN_YEAR <= day.year <= _MAX_YEAR:
             return Period(day, day + timedelta(days=1), day.strftime("%Y-%m-%d"))
-        elif match := _YEAR_RE.match(words):
-            year = int(match.group(1))
-            if 1 <= year < 9999:
-                return Period(datetime(year, 1, 1), datetime(year + 1, 1, 1), f"{year:04d}")
-    except ValueError:
-        pass  # e.g. 2026-02-30
+    elif match := _YEAR_RE.match(words):
+        year = int(match.group(1))
+        if _MIN_YEAR <= year <= _MAX_YEAR:
+            return Period(datetime(year, 1, 1), datetime(year + 1, 1, 1), f"{year:04d}")
     raise _bad(text)
 
-
-def filter_by_period(items: list, period: Period) -> list:
-    """Keep the items whose 'mtime' (seconds since the epoch) lies inside the period."""
-    return [item for item in items if period.contains(item["mtime"])]
