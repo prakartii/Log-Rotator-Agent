@@ -117,6 +117,13 @@ class RunRequestTest(LlmTestCase):
         self.assertTrue(client.requests[1]["messages"][-1]["content"][0]["is_error"])
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_invalid_arguments_are_rejected_by_the_schema_check(self):
+        client = FakeClient(response(tool_use("rotate_log", {"log": "apache", "truncate": "yes"})),
+                            response(text("Sorry.")))
+        result = self.run_llm(client)
+        self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
