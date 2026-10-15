@@ -10,7 +10,8 @@ Package layout:
     tools/         - small, controlled OS-level operations (one concern each)
     rotate.py      - the safe rotation pipeline
     agent_tools.py - the tool interface for the master/orchestrator agent
-    language.py    - plain-English requests -> one tool call
+    language.py    - plain-English requests -> one tool call (keyword rules)
+    llm_agent.py   - plain-English requests -> Claude picks and calls the tools
 
 The master agent only needs two functions:
 
