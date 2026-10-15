@@ -208,5 +208,11 @@ class AvailableTest(unittest.TestCase):
             self.assertFalse(llm_agent.available())
 
 
+    def test_available_with_package_and_key(self):
+        with mock.patch.dict(sys.modules, {"anthropic": SimpleNamespace()}), \
+                mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "key"}):
+            self.assertTrue(llm_agent.available())
+
+
 if __name__ == "__main__":
     unittest.main()
