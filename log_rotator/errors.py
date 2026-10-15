@@ -22,6 +22,7 @@ TRUNCATE_FAILED = "TRUNCATE_FAILED"
 ROTATION_VERIFY_FAILED = "ROTATION_VERIFY_FAILED"
 ROTATION_IN_PROGRESS = "ROTATION_IN_PROGRESS"
 OS_ERROR = "OS_ERROR"
+LLM_FAILED = "LLM_FAILED"  # the Claude API call failed or Claude declined; see llm_agent.py
 
 
 class RotatorError(Exception):
