@@ -62,6 +62,16 @@ python3 agent.py ask "what would happen if you rotated the apache error logs?"
 `Understood: rotate_log(log='apache error', dry_run=True)`: the agent says which
 tool it chose, and a dry run changes nothing.
 
+With an API key, the assignment's own prompt shows the LLM picking the tool:
+
+```bash
+python3 agent.py ask --engine llm "Zip up the apache error logs from last month and clear the current file."
+```
+
+Point out the first line, `Claude called: rotate_log(log='apache error', label='2026-09')`:
+Claude only chose the tool and its arguments; the Python tool did the copy, gzip and
+`ftruncate()`. (This rotates the log; for a dry run first, add "just tell me what would happen".)
+
 ## 4. Rotate (terminal 2)
 
 ```bash
