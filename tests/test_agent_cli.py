@@ -150,21 +150,21 @@ class ToolsAndCallCommandTest(CliTestCase):
 class AskCommandTest(CliTestCase):
     def test_ask_rotates_and_says_what_it_understood(self):
         inode = os.stat(self.log).st_ino
-        status, out = self.run_cli("ask", "rotate the apache error logs")
+        status, out = self.run_cli("ask", "--engine", "rules", "rotate the apache error logs")
         self.assertEqual(status, 0, out)
         self.assertTrue(out.startswith("Understood: rotate_log(log='apache error')\n"), out)
         self.assertEqual(os.stat(self.log).st_size, 0)
         self.assertEqual(os.stat(self.log).st_ino, inode)
 
     def test_ask_without_quotes(self):
-        status, result = self.run_json("ask", "what", "would", "happen", "if", "you", "rotated",
-                                       "apache_error.log")
+        status, result = self.run_json("ask", "--engine", "rules", "what", "would", "happen", "if",
+                                       "you", "rotated", "apache_error.log")
         self.assertEqual(status, 0, result)
         self.assertTrue(result["dry_run"])
         self.assertEqual(self.log.read_bytes(), self.data)
 
     def test_ask_not_understood_suggests_examples(self):
-        status, out = self.run_cli("ask", "make me a sandwich")
+        status, out = self.run_cli("ask", "--engine", "rules", "make me a sandwich")
         self.assertEqual(status, 1)
         self.assertIn("Try for example:", out)
 
