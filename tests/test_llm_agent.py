@@ -156,6 +156,11 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(len(result["tool_calls"]), llm_agent.MAX_TOOL_CALLS)
         self.assertIn("too many tool calls", result["reply"])
 
+    def test_empty_request(self):
+        result = self.run_llm(FakeClient(), "  ")
+        self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
+
+
 
 if __name__ == "__main__":
     unittest.main()
