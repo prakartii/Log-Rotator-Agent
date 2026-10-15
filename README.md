@@ -8,7 +8,7 @@ active log (snapshot → gzip → verify) and then empties the log in place with
 `ftruncate()`. The log is never deleted and recreated, so its inode stays the
 same and the writer process keeps running on its open file descriptor.
 
-> Status: all 11 development phases are complete. For the live presentation, follow
+> Status: all 12 development phases are complete. For the live presentation, follow
 > the step-by-step [demo guide](docs/DEMO.md).
 
 ## Requirements
