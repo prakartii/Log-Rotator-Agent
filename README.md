@@ -582,6 +582,6 @@ and `agent.py` processes; tests that depend on file permissions are skipped when
 7. File locking for concurrent rotation ✅
 8. Agent tool interface and CLI ✅
 9. Natural-language command handling ✅
-12. Claude tool calling (LLM picks the tools) ✅
 10. Concurrency, writer and permission tests ✅
 11. Documentation and demo guide ✅
+12. Claude tool calling (LLM picks the tools) ✅
