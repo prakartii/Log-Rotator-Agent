@@ -108,6 +108,15 @@ class RunRequestTest(LlmTestCase):
         self.assertFalse(tool_result["is_error"])
         self.assertIn("apache_error.log", tool_result["content"])
 
+    def test_tool_errors_go_back_to_claude_and_change_nothing(self):
+        client = FakeClient(response(tool_use("rotate_log", {"log": "/etc/passwd"})),
+                            response(text("That file is outside the log directory.")))
+        result = self.run_llm(client, "rotate /etc/passwd")
+
+        self.assertEqual(result["error_code"], errors.OUTSIDE_ALLOWED_DIR)
+        self.assertTrue(client.requests[1]["messages"][-1]["content"][0]["is_error"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
