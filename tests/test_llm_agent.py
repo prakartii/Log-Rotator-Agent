@@ -124,6 +124,14 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(result["error_code"], errors.INVALID_REQUEST)
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_answer_without_a_tool(self):
+        client = FakeClient(response(text("I never delete logs; I can rotate it instead.")))
+        result = self.run_llm(client, "delete the apache log")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["action"], "llm_reply")
+        self.assertEqual(result["tool_calls"], [])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
 
 if __name__ == "__main__":
     unittest.main()
