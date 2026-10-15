@@ -24,7 +24,7 @@ request and decides which of the agent's tools to run.
 ## Project structure
 
 ```
-agent.py                 # command-line entry point: ask, list, info, who, rotate, archives, tools, call
+agent.py                 # command-line entry point: ask, shell, list, info, who, rotate, archives, tools, call
 writer.py                # simulated long-running process that appends to a log
 docs/
     DEMO.md              # step-by-step guide for the live demo
