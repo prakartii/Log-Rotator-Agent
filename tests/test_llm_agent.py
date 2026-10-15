@@ -94,6 +94,20 @@ class RunRequestTest(LlmTestCase):
         with gzip.open(result["archive"], "rb") as f:
             self.assertEqual(f.read(), self.data)
 
+    def test_claude_gets_the_tool_schemas_and_the_results(self):
+        client = FakeClient(response(tool_use("list_logs", {})), response(text("One log.")))
+        self.run_llm(client, "which logs are there?")
+
+        first, second = client.requests
+        self.assertEqual(first["tools"], describe_tools())
+        self.assertEqual(first["model"], llm_agent.MODEL)
+        self.assertIn("Today is 2026-10-15", first["system"])
+        self.assertEqual(first["messages"], [{"role": "user", "content": "which logs are there?"}])
+        tool_result = second["messages"][-1]["content"][0]
+        self.assertEqual(tool_result["tool_use_id"], "toolu_1")
+        self.assertFalse(tool_result["is_error"])
+        self.assertIn("apache_error.log", tool_result["content"])
+
 
 if __name__ == "__main__":
     unittest.main()
