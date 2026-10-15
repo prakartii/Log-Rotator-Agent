@@ -180,6 +180,12 @@ class CliEngineTest(LlmTestCase):
             "Claude called: rotate_log(log='apache error', label='2026-09') -> success\n"), out)
         self.assertIn("Claude: Done.", out)
 
+    def test_auto_falls_back_to_the_keyword_rules(self):
+        with mock.patch.object(llm_agent, "available", return_value=False):
+            status, out = self.run_cli("ask", EXAMPLE)
+        self.assertEqual(status, 0, out)
+        self.assertTrue(out.startswith("Understood: rotate_log(log='apache error', label="), out)
+
 
 if __name__ == "__main__":
     unittest.main()
