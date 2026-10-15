@@ -211,5 +211,15 @@ class AvailableTest(unittest.TestCase):
             self.assertTrue(llm_agent.available())
 
 
+class AskTest(LlmTestCase):
+    def test_ask_uses_the_keyword_rules_without_claude(self):
+        with mock.patch.object(llm_agent, "available", return_value=False):
+            result = llm_agent.ask("rotate the apache error logs", log_dir=str(self.logs),
+                                   archive_dir=str(self.archives))
+        self.assertEqual(result["engine"], "rules")
+        self.assertEqual(result["action"], "rotate")
+        self.assertEqual(os.stat(self.log).st_size, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
