@@ -206,6 +206,15 @@ def _format_identify(result):
     return f"{result['query']!r} -> {result['log']} (matched by {result['matched_by']})"
 
 
+def _request_handler(parser, engine: str):
+    """Pick the function that turns plain English into tool calls (Claude or keyword rules)."""
+    if engine == "llm" and not llm_agent.available():
+        parser.error("--engine llm needs the anthropic package (pip install anthropic) "
+                     "and ANTHROPIC_API_KEY")
+    use_llm = engine == "llm" or (engine == "auto" and llm_agent.available())
+    return llm_agent.run_request if use_llm else language.handle_request
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -213,11 +222,7 @@ def main(argv=None) -> int:
         print(json.dumps(agent_tools.describe_tools(), indent=2))
         return 0
     if args.command == "ask":
-        if args.engine == "llm" and not llm_agent.available():
-            parser.error("--engine llm needs the anthropic package (pip install anthropic) "
-                         "and ANTHROPIC_API_KEY")
-        use_llm = args.engine == "llm" or (args.engine == "auto" and llm_agent.available())
-        handler = llm_agent.run_request if use_llm else language.handle_request
+        handler = _request_handler(parser, args.engine)
         result = handler(" ".join(args.request), log_dir=args.log_dir, archive_dir=args.archive_dir)
     else:
         try:
