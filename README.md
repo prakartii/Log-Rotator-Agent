@@ -15,6 +15,8 @@ same and the writer process keeps running on its open file descriptor.
 
 - Linux (Ubuntu / WSL2). The agent uses Linux-only system calls such as `fcntl.flock`.
 - Python 3.9+ (standard library only, no extra packages needed)
+- Optional, for Claude tool calling: `pip install -r requirements.txt` (the `anthropic`
+  package) and an `ANTHROPIC_API_KEY`. Without them `ask` uses the keyword rules.
 
 ## Project structure
 
