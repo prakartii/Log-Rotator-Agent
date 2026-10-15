@@ -21,6 +21,8 @@ from log_rotator import agent_tools, language, llm_agent
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agent.py", description="Log Rotator Agent")
     parser.add_argument("--json", action="store_true", help="print the raw JSON result")
+    parser.add_argument("--yes", action="store_true",
+                        help="do not ask before a request empties a log (scripts, the master shell)")
     parser.add_argument("--log-dir", help="directory of the active logs (default: logs/)")
     parser.add_argument("--archive-dir", help="where archives are written (default: rotated_logs/)")
     commands = parser.add_subparsers(dest="command", required=True, metavar="command")
@@ -220,6 +222,18 @@ def _request_handler(parser, engine: str):
     return llm_agent.run_request if use_llm else language.handle_request
 
 
+def _confirmer(args, stdin):
+    """The Proceed? [y/N] prompt, or None (no prompt) with --yes or when nobody is at a terminal."""
+    if args.yes or not stdin.isatty():
+        return None
+
+    def confirm(explanation: str) -> bool:
+        print(f"About to run {explanation}: the log will be archived and then emptied.")
+        print("Proceed? [y/N] ", end="", flush=True)
+        return stdin.readline().strip().lower() in ("y", "yes")
+    return confirm
+
+
 def run_shell(handler, args, stdin=None) -> int:
     """Read requests line by line until exit/quit or end of input; print each result."""
     stdin = stdin or sys.stdin
@@ -232,7 +246,8 @@ def run_shell(handler, args, stdin=None) -> int:
             return 0
         if not line.strip():
             continue
-        result = handler(line.strip(), log_dir=args.log_dir, archive_dir=args.archive_dir)
+        result = handler(line.strip(), log_dir=args.log_dir, archive_dir=args.archive_dir,
+                         confirm=_confirmer(args, stdin))
         print(json.dumps(result, indent=2) if args.json else format_result(result))
 
 
@@ -246,7 +261,8 @@ def main(argv=None) -> int:
         return run_shell(_request_handler(parser, args.engine), args)
     if args.command == "ask":
         handler = _request_handler(parser, args.engine)
-        result = handler(" ".join(args.request), log_dir=args.log_dir, archive_dir=args.archive_dir)
+        result = handler(" ".join(args.request), log_dir=args.log_dir, archive_dir=args.archive_dir,
+                         confirm=_confirmer(args, sys.stdin))
     else:
         try:
             name, arguments = tool_call(args)
