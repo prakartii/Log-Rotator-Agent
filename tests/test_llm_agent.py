@@ -137,6 +137,14 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(result["error_code"], errors.LLM_FAILED)
         self.assertEqual(self.log.read_bytes(), self.data)
 
+    def test_api_failure_after_a_rotation_still_reports_the_rotation(self):
+        client = FakeClient(response(tool_use("rotate_log", {"log": "apache error"})),
+                            ConnectionError("no network"))
+        result = self.run_llm(client)
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["action"], "rotate")
+        self.assertIn("could not finish", result["reply"])
+
 
 if __name__ == "__main__":
     unittest.main()
