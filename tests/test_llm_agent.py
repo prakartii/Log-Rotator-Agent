@@ -145,6 +145,10 @@ class RunRequestTest(LlmTestCase):
         self.assertEqual(result["action"], "rotate")
         self.assertIn("could not finish", result["reply"])
 
+    def test_refusal(self):
+        result = self.run_llm(FakeClient(response(stop_reason="refusal")))
+        self.assertEqual(result["error_code"], errors.LLM_FAILED)
+
 
 if __name__ == "__main__":
     unittest.main()
