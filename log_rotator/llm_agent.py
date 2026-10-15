@@ -54,6 +54,14 @@ def available() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
+def ask(text: str, log_dir=None, archive_dir=None) -> dict:
+    """Entry point for the base shell: Claude if available(), else the keyword rules."""
+    if available():
+        return run_request(text, log_dir=log_dir, archive_dir=archive_dir)
+    from .language import handle_request
+    return {**handle_request(text, log_dir=log_dir, archive_dir=archive_dir), "engine": "rules"}
+
+
 def _explain(name: str, arguments) -> str:
     if not isinstance(arguments, dict):  # call_tool() rejects it; just show it
         return f"{name}({arguments!r})"
