@@ -334,6 +334,7 @@ python3 agent.py who apache_error                   # which processes have the l
 python3 agent.py rotate apache_error --dry-run      # what would happen, nothing changes
 python3 agent.py rotate apache_error                # archive + gzip + verify + ftruncate
 python3 agent.py archives apache_error              # archives of that log, newest first
+python3 agent.py shell                              # type requests one per line, exit to quit
 ```
 
 `rotate` options: `--dry-run`, `--no-compress`, `--no-truncate` (archive only),
