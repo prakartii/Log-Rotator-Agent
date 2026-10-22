@@ -54,6 +54,11 @@ def is_destructive(name: str, arguments) -> bool:
     return arguments.get("dry_run") is not True and arguments.get("truncate") is not False
 
 
+def preview(name: str, arguments, log_dir=None, archive_dir=None) -> dict:
+    """The dry-run result of a destructive call: what rotate_log would do, changing nothing."""
+    return call_tool(name, {**arguments, "dry_run": True}, log_dir=log_dir, archive_dir=archive_dir)
+
+
 def _check_arguments(spec: dict, arguments) -> None:
     """Reject unknown, missing or wrongly typed arguments before anything runs."""
     if arguments is None:
