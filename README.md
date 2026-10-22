@@ -24,7 +24,7 @@ request and decides which of the agent's tools to run.
 ## Project structure
 
 ```
-agent.py                 # command-line entry point: ask, shell, list, info, who, rotate, archives, tools, call
+agent.py                 # command-line entry point: ask, shell, mcp, list, info, who, rotate, archives, tools, call
 writer.py                # simulated long-running process that appends to a log
 docs/
     DEMO.md              # step-by-step guide for the live demo
@@ -48,6 +48,7 @@ log_rotator/
     agent_tools.py       # describe_tools(), call_tool(): interface for the master agent
     language.py          # parse_request(), handle_request(): plain-English requests (keyword rules)
     llm_agent.py         # run_request(): Claude reads the request and calls the tools
+    mcp_server.py        # serve(): the tools over the Model Context Protocol (stdio)
 logs/                    # active demo logs (contents git-ignored)
 rotated_logs/            # compressed archives (contents git-ignored)
 tests/                   # unittest test suite
@@ -446,7 +447,7 @@ How `log_rotator/llm_agent.py` works:
    Claude stops calling tools (at most 8 calls per request), then it answers in a sentence.
 
 **Confirmation.** At a terminal, a request that would empty a log first shows the tool
-call and asks `Proceed? [y/N]`; anything but `y` returns `CANCELLED` and changes nothing.
+call and its dry-run plan (target file, archive path, inode) and asks `Proceed? [y/N]`; anything but `y` returns `CANCELLED` and changes nothing.
 Dry runs and archive-only requests are never asked. `--yes` skips the prompt, and so does
 non-interactive use (the master shell, scripts), where stdin is not a terminal.
 
@@ -457,6 +458,19 @@ until `exit`, `quit` or Ctrl-D, and prints each result.
 default `auto` uses Claude when the package and an API key are present. API failures,
 refusals and cut-off answers return `LLM_FAILED`; if a tool already ran, its result is
 still shown. From Python: `llm_agent.run_request(text)`.
+
+## MCP server
+
+`python3 agent.py mcp` serves the tools over the Model Context Protocol (JSON-RPC 2.0,
+one message per line on stdin/stdout). An MCP client such as the class master shell
+starts the process and uses `initialize`, `tools/list` and `tools/call`. Every
+`tools/call` goes through `call_tool()`, so schema validation and the path allowlist
+apply as for the CLI; a tool error comes back with `isError: true` and the usual
+`error_code` in `structuredContent`. Example client entry:
+
+```json
+{"mcpServers": {"log-rotator": {"command": "python3", "args": ["agent.py", "mcp"]}}}
+```
 
 ## Plain-English requests
 
@@ -603,7 +617,7 @@ publishing its archive and `ftruncate()` causes duplicated (never lost) lines.
 python3 -m unittest discover -v
 ```
 
-331 tests, about 45 seconds. They run on Linux (WSL2 works) and start real `writer.py`
+359 tests, about 35 seconds. They run on Linux (WSL2 works) and start real `writer.py`
 and `agent.py` processes; tests that depend on file permissions are skipped when run as root.
 
 ## Development phases
