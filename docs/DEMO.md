@@ -144,6 +144,21 @@ log-rotator> what would happen if you rotated the apache error log?
 log-rotator> exit
 ```
 
+Confirmation: at a terminal, a request that would empty the log shows the dry-run plan
+and asks before it acts (declining changes nothing):
+
+```bash
+python3 agent.py ask "rotate the apache error log"
+# About to run rotate_log(log='apache error') ... Proceed? [y/N]
+```
+
+MCP: the same tools as an MCP server (JSON-RPC lines on stdin/stdout):
+
+```bash
+printf '%s
+' '{"jsonrpc":"2.0","id":1,"method":"initialize"}'   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | python3 agent.py mcp
+```
+
 ## Questions to expect
 
 | Question | Short answer |
