@@ -218,14 +218,15 @@ def handle_request(text: str, log_dir=None, archive_dir=None, today: date = None
                    confirm=None) -> dict:
     """Interpret a request and run the matching tool. Never raises for expected errors.
 
-    confirm(explanation) -> bool is asked before a call that empties a log; False
-    returns CANCELLED and changes nothing. None = no confirmation.
+    confirm(explanation, plan) -> bool is asked before a call that empties a log, with
+    the dry-run result as the plan; False returns CANCELLED and changes nothing.
+    None = no confirmation.
 
     The result is the tool's own result plus "request" (the original text) and
     "interpreted_as" (tool, arguments, explanation), so it is always visible
     what the agent understood before it acted.
     """
-    from .agent_tools import call_tool, is_destructive  # imported here: agent_tools does not depend on us
+    from .agent_tools import call_tool, is_destructive, preview  # imported here: agent_tools does not depend on us
 
     try:
         parsed = parse_request(text, today=today)
@@ -237,7 +238,8 @@ def handle_request(text: str, log_dir=None, archive_dir=None, today: date = None
                 result["available_logs"] = [log["name"] for log in listing["logs"]]
         return result
     if confirm and is_destructive(parsed["tool"], parsed["arguments"]) \
-            and not confirm(parsed["explanation"]):
+            and not confirm(parsed["explanation"],
+                            preview(parsed["tool"], parsed["arguments"], log_dir, archive_dir)):
         return {**RotatorError(errors.CANCELLED, "The user declined; the log was not changed",
                                log_unchanged=True).to_dict(action=parsed["tool"]),
                 "request": text, "interpreted_as": parsed}

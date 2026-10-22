@@ -168,16 +168,24 @@ class HandleRequestTest(unittest.TestCase):
     def test_declined_confirmation_changes_nothing(self):
         asked = []
         result = handle_request("rotate the nginx access log", log_dir=self.logs,
-                                archive_dir=self.archives, confirm=lambda e: asked.append(e) or False)
+                                archive_dir=self.archives, confirm=lambda e, plan=None: asked.append(e) or False)
         self.assertEqual(asked, ["rotate_log(log='nginx access')"])
         self.assertEqual(result["error_code"], errors.CANCELLED)
         self.assertEqual(self.log.read_bytes(), self.data)
         self.assertFalse(self.archives.exists() and any(self.archives.iterdir()))
 
+    def test_confirmation_is_shown_the_dry_run_plan(self):
+        plans = []
+        handle_request("rotate the nginx access log", log_dir=self.logs, archive_dir=self.archives,
+                       confirm=lambda e, plan=None: plans.append(plan) or False)
+        self.assertEqual(plans[0]["status"], "success")
+        self.assertTrue(plans[0]["dry_run"])
+        self.assertEqual(self.log.read_bytes(), self.data)
+
     def test_dry_run_is_never_confirmed(self):
         result = handle_request("what would happen if you rotated the nginx access log?",
                                 log_dir=self.logs, archive_dir=self.archives,
-                                confirm=lambda e: self.fail("a dry run needs no confirmation"))
+                                confirm=lambda e, plan=None: self.fail("a dry run needs no confirmation"))
         self.assertEqual(result["status"], "success", result)
 
     def test_result_shows_the_interpretation(self):

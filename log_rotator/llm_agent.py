@@ -19,7 +19,7 @@ import os
 from datetime import date
 
 from . import errors
-from .agent_tools import call_tool, describe_tools, is_destructive
+from .agent_tools import call_tool, describe_tools, is_destructive, preview
 from .errors import RotatorError
 
 MODEL = "claude-opus-5-5"
@@ -72,7 +72,7 @@ def run_request(text: str, log_dir=None, archive_dir=None, client=None, today: d
                 confirm=None) -> dict:
     """Let Claude pick and run tools for a plain-English request. Never raises for expected errors.
 
-    confirm(explanation) -> bool is asked before a call that empties a log
+    confirm(explanation, plan) -> bool (plan = the dry-run result) is asked before a call that empties a log
     (is_destructive); False skips the call and tells Claude the user declined.
     None = no confirmation (scripts, the master shell).
 
@@ -145,7 +145,8 @@ def run_request(text: str, log_dir=None, archive_dir=None, client=None, today: d
                                       "Too many tool calls for one request").to_dict(action=block.name)
             else:
                 explanation = _explain(block.name, block.input)
-                if confirm and is_destructive(block.name, block.input) and not confirm(explanation):
+                if confirm and is_destructive(block.name, block.input) and not confirm(
+                        explanation, preview(block.name, block.input, log_dir, archive_dir)):
                     result = RotatorError(errors.CANCELLED, "The user declined; the log was not changed",
                                           log_unchanged=True).to_dict(action=block.name)
                 else:

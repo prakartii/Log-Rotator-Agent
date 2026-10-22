@@ -161,7 +161,7 @@ class RunRequestTest(LlmTestCase):
         client = FakeClient(response(tool_use("rotate_log", {"log": "apache error", "label": "2026-09"})),
                             response(text("OK, I left the log as it is.")))
         result = llm_agent.run_request(EXAMPLE, log_dir=str(self.logs), archive_dir=str(self.archives),
-                                       client=client, confirm=lambda e: asked.append(e) or False)
+                                       client=client, confirm=lambda e, plan=None: asked.append(e) or False)
         self.assertEqual(asked, ["rotate_log(log='apache error', label='2026-09')"])
         self.assertEqual(result["error_code"], errors.CANCELLED)
         self.assertTrue(client.requests[1]["messages"][-1]["content"][0]["is_error"])
