@@ -12,6 +12,7 @@ Package layout:
     agent_tools.py - the tool interface for the master/orchestrator agent
     language.py    - plain-English requests -> one tool call (keyword rules)
     llm_agent.py   - plain-English requests -> Claude picks and calls the tools
+    mcp_server.py  - the tools served over the Model Context Protocol (stdio)
 
 The master agent only needs two functions:
 

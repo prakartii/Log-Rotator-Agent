@@ -5,6 +5,7 @@
     python3 agent.py info "apache error"           # inode, size, open handles
     python3 agent.py rotate apache_error --dry-run # what would happen
     python3 agent.py shell                         # type requests one after another
+    python3 agent.py mcp                           # MCP server for the master shell
 
 Every command calls exactly one tool from log_rotator.agent_tools, the same
 interface the master agent uses. --json prints the tool's result unchanged.
@@ -15,7 +16,7 @@ import argparse
 import json
 import sys
 
-from log_rotator import agent_tools, language, llm_agent
+from log_rotator import agent_tools, language, llm_agent, mcp_server
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,6 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     shell = commands.add_parser("shell", help="type requests one after another (exit to quit)")
     shell.add_argument("--engine", choices=["auto", "llm", "rules"], default="auto",
                        help="same as for ask")
+
+    commands.add_parser("mcp", help="serve the tools to an MCP client over stdin/stdout")
 
     list_cmd = commands.add_parser("list", help="list the active logs")
     list_cmd.add_argument("--period", help="only logs modified in this range, e.g. 'last month', 2026-09")
@@ -232,8 +235,11 @@ def _confirmer(args, stdin):
     if args.yes or not stdin.isatty():
         return None
 
-    def confirm(explanation: str) -> bool:
-        print(f"About to run {explanation}: the log will be archived and then emptied.")
+    def confirm(explanation: str, plan: dict = None) -> bool:
+        print(f"About to run {explanation}")
+        if plan and plan["status"] == "success":
+            print(format_result(plan))
+        print("The log will be archived and then emptied.")
         print("Proceed? [y/N] ", end="", flush=True)
         return stdin.readline().strip().lower() in ("y", "yes")
     return confirm
@@ -262,6 +268,8 @@ def main(argv=None) -> int:
     if args.command == "tools":
         print(json.dumps(agent_tools.describe_tools(), indent=2))
         return 0
+    if args.command == "mcp":
+        return mcp_server.serve(log_dir=args.log_dir, archive_dir=args.archive_dir)
     if args.command == "shell":
         return run_shell(_request_handler(parser, args.engine), args)
     if args.command == "ask":
