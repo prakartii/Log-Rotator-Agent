@@ -66,6 +66,20 @@ class StressTestCase(unittest.TestCase):
         while os.stat(self.log).st_size < size and time.monotonic() < deadline:
             time.sleep(0.02)
 
+    def wait_until_open(self, writers, timeout=5.0):
+        """Wait until every writer process has the log open (they start at different speeds)."""
+        deadline = time.monotonic() + timeout
+        target = os.stat(self.log).st_ino
+
+        def holds_log(writer):
+            try:
+                return any(os.stat(f"/proc/{writer.pid}/fd/{fd}").st_ino == target
+                           for fd in os.listdir(f"/proc/{writer.pid}/fd"))
+            except OSError:
+                return False
+        while not all(holds_log(w) for w in writers) and time.monotonic() < deadline:
+            time.sleep(0.02)
+
     def line_counts(self):
         """How often each (writer pid, seq) line appears in all archives plus the live log."""
         data = self.log.read_bytes()
@@ -126,6 +140,7 @@ class MultipleWritersTest(StressTestCase):
     def test_every_writer_stays_attached_to_the_same_inode(self):
         writers = [self.start_writer(rate=200) for _ in range(3)]
         self.wait_for_size(4096)
+        self.wait_until_open(writers)
         inode = os.stat(self.log).st_ino
         result = self.rotate()
         self.assertEqual(result["status"], "success", result)
