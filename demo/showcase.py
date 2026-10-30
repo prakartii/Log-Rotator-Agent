@@ -159,6 +159,18 @@ class Showcase:
         self.agent("ask", "rotate everything")
         self.say("None of these reached the file system.")
 
+    def step_interfaces(self):
+        self.banner(6, "One agent, three ways to use it")
+        self.say("1. The interactive shell (type requests live with: python3 agent.py shell)")
+        self.run("printf 'list the logs\\nshow the archives\\nexit\\n' | python3 agent.py --yes shell",
+                 shell=True)
+        self.say("2. The tool list the master agent and Claude choose from:")
+        self.run("python3 agent.py tools | grep '\"name\"'", shell=True)
+        self.say("3. The same tools as an MCP server, for the class master shell:")
+        self.run("printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}' "
+                 "'{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":"
+                 "{\"name\":\"list_logs\"}}' | python3 agent.py mcp | cut -c1-200", shell=True)
+
     def step_finish(self):
         self.banner("END", "Summary")
         alive = self.writer.poll() is None
@@ -169,7 +181,7 @@ class Showcase:
 
     def steps(self):
         return [self.step_setup, self.step_inspect, self.step_rotate, self.step_proof,
-                self.step_safety]
+                self.step_safety, self.step_interfaces]
 
     def play(self):
         try:
