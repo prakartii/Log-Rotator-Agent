@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guided live demo of the Log Rotator Agent, for presentations and screen recordings.
+"""Log Rotator Agent: a live run against a sandbox log, for presentations and screen recordings.
 
     python3 demo/showcase.py                  # presenter mode: press Enter between steps
     python3 demo/showcase.py --auto           # runs by itself, short pauses (no prompts)
@@ -105,7 +105,13 @@ class Showcase:
                 self.writer.kill()
 
     # ----- steps ---------------------------------------------------------------------------
+    def title(self):
+        print(self.paint("
+  LOG ROTATOR AGENT", "1;37"))
+        print(self.paint("  Safe log rotation with ftruncate(): the writer is never interrupted", "2"))
+
     def step_setup(self):
+        self.title()
         self.banner(1, "A server keeps writing to its log")
         self.say("The writer plays Apache: it opens the log ONCE and appends to it forever.")
         self.say(f"Sandbox: {self.dir}")
@@ -144,7 +150,7 @@ class Showcase:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Guided live demo of the Log Rotator Agent")
+    parser = argparse.ArgumentParser(description="Log Rotator Agent: live run against a sandbox log")
     parser.add_argument("--dir", default="~/log-rotator-demo", help="sandbox directory for the demo logs")
     parser.add_argument("--auto", action="store_true", help="run without waiting for Enter")
     parser.add_argument("--fast", action="store_true", help="no typing effect")
