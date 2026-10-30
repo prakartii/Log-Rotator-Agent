@@ -1,5 +1,6 @@
 """Tests for the command-line interface (agent.py)."""
 
+import argparse
 import contextlib
 import gzip
 import io
@@ -16,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import agent  # noqa: E402  (agent.py lives in the project root)
+from log_rotator import llm_agent  # noqa: E402
 
 
 class CliTestCase(unittest.TestCase):
@@ -181,6 +183,20 @@ class ShellCommandTest(CliTestCase):
         self.assertIn("Understood: list_logs()", out)
         self.assertIn("Understood: rotate_log(log='apache error')", out)
         self.assertEqual(os.stat(self.log).st_size, 0)
+
+    def test_help_shows_the_engine_and_examples(self):
+        status, out = self.run_shell("help\nexit\n")
+        self.assertEqual(status, 0, out)
+        self.assertIn("LOG ROTATOR AGENT", out)
+        self.assertIn("engine: keyword rules (offline)", out)
+        self.assertIn(str(self.logs), out)
+        self.assertIn("who is writing to the apache error log?", out)
+        self.assertEqual(self.log.read_bytes(), self.data)
+
+    def test_banner_names_claude_when_it_is_the_engine(self):
+        args = argparse.Namespace(log_dir=str(self.logs))
+        banner = agent.shell_banner(llm_agent.run_request, args)
+        self.assertIn(f"Claude ({llm_agent.MODEL}) picks the tools", banner)
 
     def test_shell_stops_at_exit_and_skips_blank_lines(self):
         status, out = self.run_shell("\n   \nexit\nrotate the apache error logs\n")
