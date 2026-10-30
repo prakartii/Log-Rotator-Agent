@@ -30,6 +30,7 @@ docs/
     DEMO.md              # step-by-step guide for the live demo
 demo/
     inode_demo.py        # presentation demo: same inode before/after, writer keeps running
+    showcase.py          # live run of the agent against a sandbox log, for screen recordings
 log_rotator/
     config.py            # directories, allowed roots, log aliases
     errors.py            # stable error codes + structured success/error results
@@ -537,6 +538,18 @@ $ python3 agent.py ask "rotate everything"
 ERROR INVALID_REQUEST: Rotate one log at a time; name the log (see 'list the logs')
 Available logs: apache_error.log, nginx_access.log
 ```
+
+## Live run for presentations: `demo/showcase.py`
+
+```bash
+python3 demo/showcase.py          # press Enter between steps, type y at Proceed? [y/N]
+python3 demo/showcase.py --auto   # plays through by itself
+```
+
+It starts a writer on a sandbox log (`~/log-rotator-demo`, or `--dir`), then types and runs
+real agent commands: list/info/who, a dry run, the assignment prompt with the confirmation,
+`ls -li` and `gzip -t` as proof, the refused and blocked requests, the shell, the tool list
+and the MCP server. Nothing outside the sandbox is touched.
 
 ## Demo: the inode stays the same
 
