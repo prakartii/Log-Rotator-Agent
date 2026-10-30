@@ -106,8 +106,8 @@ class Showcase:
 
     # ----- steps ---------------------------------------------------------------------------
     def title(self):
-        print(self.paint("
-  LOG ROTATOR AGENT", "1;37"))
+        print()
+        print(self.paint("  LOG ROTATOR AGENT", "1;37"))
         print(self.paint("  Safe log rotation with ftruncate(): the writer is never interrupted", "2"))
 
     def step_setup(self):
@@ -127,6 +127,17 @@ class Showcase:
         self.agent("who", "apache_error")
         self.say("Remember the inode number: it must not change.")
 
+    def step_rotate(self):
+        self.banner(3, "Ask in plain English")
+        self.say("First a dry run: the agent says which tool it chose and changes nothing.")
+        self.agent("ask", "what would happen if you rotated the apache error logs?")
+        self.pause()
+        self.say("Now the real request. The agent shows the plan and asks before emptying the log.")
+        if not self.auto:
+            self.note("Type y at Proceed? [y/N]")
+        self.agent("ask", "Zip up the apache error logs from last month and clear the current file.",
+                   confirm=True)
+
     def step_finish(self):
         self.banner("END", "Summary")
         alive = self.writer.poll() is None
@@ -136,7 +147,7 @@ class Showcase:
         self.note(str(self.dir))
 
     def steps(self):
-        return [self.step_setup, self.step_inspect]
+        return [self.step_setup, self.step_inspect, self.step_rotate]
 
     def play(self):
         try:
