@@ -4,6 +4,14 @@ A 10-minute live demo for the class presentation. It shows the one idea the
 project is built on: **a log can be emptied while a process is still writing
 to it, without losing the file, the inode or the writer.**
 
+## Shortcut: the live run
+
+`python3 demo/showcase.py` plays through the whole demo below on a sandbox log: the
+writer, list/info/who, the dry run, the rotation with `Proceed? [y/N]`, the proof
+(`ls -li`, `gzip -t`), the refused requests, the shell, the tool list and the MCP server.
+Press Enter between steps (or use `--auto`). Then try `python3 agent.py shell` and type your
+own requests.
+
 ## Before the demo
 
 - Ubuntu or WSL2, Python 3.9+.
