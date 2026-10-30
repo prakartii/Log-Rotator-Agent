@@ -113,6 +113,14 @@ class Showcase:
         self.run("head -2 writer.out", cwd=self.dir, shell=True)
         self.say(f"Writer pid {self.writer.pid} is running with a {self.prefill_mb:.0f} MiB log.")
 
+    def step_inspect(self):
+        self.banner(2, "Look at the log before touching it")
+        self.say("The agent reads the log's inode, size and who has it open (like lsof, via /proc).")
+        self.agent("list")
+        self.agent("info", "the apache error logs")
+        self.agent("who", "apache_error")
+        self.say("Remember the inode number: it must not change.")
+
     def step_finish(self):
         self.banner("END", "Summary")
         alive = self.writer.poll() is None
@@ -122,7 +130,7 @@ class Showcase:
         self.note(str(self.dir))
 
     def steps(self):
-        return [self.step_setup]
+        return [self.step_setup, self.step_inspect]
 
     def play(self):
         try:
