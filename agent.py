@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 
-from log_rotator import agent_tools, language, llm_agent, mcp_server
+from log_rotator import agent_tools, config, language, llm_agent, mcp_server
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -245,10 +245,34 @@ def _confirmer(args, stdin):
     return confirm
 
 
+SHELL_EXAMPLES = [
+    "list the logs",
+    "who is writing to the apache error log?",
+    "what would happen if you rotated the apache error logs?",
+    "Zip up the apache error logs from last month and clear the current file.",
+    "show the archives of the apache error log",
+]
+
+
+def shell_banner(handler, args) -> str:
+    engine = (f"Claude ({llm_agent.MODEL}) picks the tools" if handler is llm_agent.run_request
+              else "keyword rules (offline)")
+    lines = ["", "  LOG ROTATOR AGENT",
+             "  Archives a log and empties it in place with ftruncate(); the writer keeps running.",
+             f"  engine: {engine}",
+             f"  logs:   {args.log_dir or config.LOG_DIR}",
+             "", "  Ask in plain English. Examples:"]
+    lines += [f"    {example}" for example in SHELL_EXAMPLES]
+    lines += ["", "  help shows this again; exit or Ctrl-D quits.", ""]
+    return chr(10).join(lines)
+
+
 def run_shell(handler, args, stdin=None) -> int:
     """Read requests line by line until exit/quit or end of input; print each result."""
     stdin = stdin or sys.stdin
     interactive = stdin.isatty()
+    if interactive:
+        print(shell_banner(handler, args))
     while True:
         if interactive:
             print("log-rotator> ", end="", flush=True)
@@ -256,6 +280,9 @@ def run_shell(handler, args, stdin=None) -> int:
         if not line or line.strip().lower() in ("exit", "quit"):
             return 0
         if not line.strip():
+            continue
+        if line.strip().lower() == "help":
+            print(shell_banner(handler, args))
             continue
         result = handler(line.strip(), log_dir=args.log_dir, archive_dir=args.archive_dir,
                          confirm=_confirmer(args, stdin))
