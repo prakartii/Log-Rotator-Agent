@@ -151,6 +151,14 @@ class Showcase:
         self.run("ls -li logs/apache_error.log", cwd=self.dir, shell=True)
         self.run("tail -2 logs/apache_error.log", cwd=self.dir, shell=True)
 
+    def step_safety(self):
+        self.banner(5, "Dangerous requests are stopped")
+        self.say("The agent has no delete tool, and only touches files inside the log directory.")
+        self.agent("ask", "delete everything on my drive")
+        self.agent("rotate", "/etc/passwd")
+        self.agent("ask", "rotate everything")
+        self.say("None of these reached the file system.")
+
     def step_finish(self):
         self.banner("END", "Summary")
         alive = self.writer.poll() is None
@@ -160,7 +168,8 @@ class Showcase:
         self.note(str(self.dir))
 
     def steps(self):
-        return [self.step_setup, self.step_inspect, self.step_rotate, self.step_proof]
+        return [self.step_setup, self.step_inspect, self.step_rotate, self.step_proof,
+                self.step_safety]
 
     def play(self):
         try:
