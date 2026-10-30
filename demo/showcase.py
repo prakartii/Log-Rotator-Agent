@@ -138,6 +138,19 @@ class Showcase:
         self.agent("ask", "Zip up the apache error logs from last month and clear the current file.",
                    confirm=True)
 
+    def step_proof(self):
+        self.banner(4, "Proof from the operating system")
+        self.say("ls shows the same inode, a small live log, and the new archive.")
+        self.run("ls -li logs/apache_error.log rotated_logs/", cwd=self.dir, shell=True)
+        archive = sorted(self.archives.glob("apache_error.log.2026-09.*.gz"))[-1].name
+        self.say("The archive is a valid gzip file that holds the old contents:")
+        self.run(f"gzip -t rotated_logs/{archive} && echo 'archive OK' && zcat rotated_logs/{archive} | wc -l",
+                 cwd=self.dir, shell=True)
+        self.say("A moment later the log has grown again: the writer never noticed the rotation.")
+        time.sleep(1 if self.fast else 3)
+        self.run("ls -li logs/apache_error.log", cwd=self.dir, shell=True)
+        self.run("tail -2 logs/apache_error.log", cwd=self.dir, shell=True)
+
     def step_finish(self):
         self.banner("END", "Summary")
         alive = self.writer.poll() is None
@@ -147,7 +160,7 @@ class Showcase:
         self.note(str(self.dir))
 
     def steps(self):
-        return [self.step_setup, self.step_inspect, self.step_rotate]
+        return [self.step_setup, self.step_inspect, self.step_rotate, self.step_proof]
 
     def play(self):
         try:
